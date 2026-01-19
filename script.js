@@ -590,6 +590,9 @@ function pickQuestion(subject, difficulty){
       objects:[],
       platforms:[],
 
+      // Время, оставшееся до конца уровня (в секундах). Когда null, таймер отключён.
+      levelTime: null,
+
       start(){
         resizeCanvas();
         this.resetWorld();
@@ -611,6 +614,11 @@ function pickQuestion(subject, difficulty){
         this.levelMode = "normal";
         examHud.hide();
         this.levelId = null;
+
+        // Сбрасываем таймер уровня и скрываем его
+        this.levelTime = null;
+        const timerEl = document.getElementById('hud-timer');
+        if(timerEl) timerEl.classList.add('hidden');
         const badge = document.querySelector(".badge");
         if(badge) badge.textContent = "Хаб: школьный коридор";
         $("hud-tip").innerHTML = "Подойди к объекту и нажми <b>E</b>/<b>У</b> (или ✋). Библиотека — для улучшений.";
@@ -670,6 +678,12 @@ function pickQuestion(subject, difficulty){
         this.mode = "level";
         this.levelId = levelId;
 
+        // Запускаем таймер уровня: по умолчанию 150 секунд, для экзамена чуть больше
+        const baseTime = (levelId === 'exam') ? 200 : 150;
+        this.levelTime = baseTime;
+        const timerEl = document.getElementById('hud-timer');
+        if(timerEl) timerEl.classList.remove('hidden');
+
         // Пока делаем 1 уровень: math
         if(levelId === "math"){
           const badge = document.querySelector(".badge");
@@ -689,6 +703,8 @@ function pickQuestion(subject, difficulty){
             {x:1180, y:this.world.groundY-170, w:200, h:18},
             {x:1500, y:this.world.groundY-120, w:180, h:18},
             {x:1820, y:this.world.groundY-90, w:210, h:18},
+            // Движущаяся платформа: двигается влево и вправо
+            {x:1200, y:this.world.groundY-200, w:140, h:18, move:{axis:'x', range:160, speed:60}},
           ];
 
           // Враги-вопросы (одноклассник = easy, учитель = hard)
@@ -701,6 +717,8 @@ function pickQuestion(subject, difficulty){
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Выход в коридор"},
             ...enemies,
             {type:"decor", x:2100, y:this.world.groundY-220, w:220, h:220, label:"Доска", text:"Математика — это тренировка мозга 🧠"},
+            // Коллекционный предмет для математики
+            {type:'collectible', id:'math_c1', x:1600, y:this.world.groundY-250, w:26, h:26, value:5},
           ];
 
           const p = this.player;
@@ -721,11 +739,15 @@ function pickQuestion(subject, difficulty){
             {x:650, y:this.world.groundY-190, w:240, h:18},
             {x:1050, y:this.world.groundY-150, w:240, h:18},
             {x:1480, y:this.world.groundY-210, w:240, h:18},
+            // Движущаяся вертикальная платформа
+            {x:800, y:this.world.groundY-220, w:140, h:18, move:{axis:'y', range:100, speed:40}},
           ];
           this.objects = [
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
-            {type:"enemy", id:"ru_s1", difficulty:"easy", role:"одноклассник", name:"Аня", x:740, y:this.world.groundY-72, w:60, h:80, subject:"russian"},
-            {type:"enemy", id:"ru_t1", difficulty:"hard", role:"учитель", name:"Учитель русского", x:1320, y:this.world.groundY-72, w:60, h:80, subject:"russian"},
+            {type:"enemy", id:"ru_s1", difficulty:"easy", role:"одноклассник", name:"Аня", x:740, y:this.world.groundY-72, w:60, h:80, subject:"russian", speed:50},
+            {type:"enemy", id:"ru_t1", difficulty:"hard", role:"учитель", name:"Учитель русского", x:1320, y:this.world.groundY-72, w:60, h:80, subject:"russian", speed:50},
+            // Коллекционный предмет для русского
+            {type:'collectible', id:'rus_c1', x:1700, y:this.world.groundY-260, w:26, h:26, value:5},
           ];
           const p=this.player;
           p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
@@ -745,11 +767,15 @@ function pickQuestion(subject, difficulty){
             {x:760, y:this.world.groundY-180, w:260, h:18},
             {x:1200, y:this.world.groundY-140, w:260, h:18},
             {x:1640, y:this.world.groundY-200, w:260, h:18},
+            // Движущаяся горизонтальная платформа для истории
+            {x:900, y:this.world.groundY-220, w:140, h:18, move:{axis:'x', range:160, speed:50}},
           ];
           this.objects = [
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
-            {type:"enemy", id:"hi_s1", difficulty:"easy", role:"одноклассник", name:"Дима", x:800, y:this.world.groundY-72, w:60, h:80, subject:"history"},
-            {type:"enemy", id:"hi_t1", difficulty:"hard", role:"учитель", name:"Учитель истории", x:1460, y:this.world.groundY-72, w:60, h:80, subject:"history"},
+            {type:"enemy", id:"hi_s1", difficulty:"easy", role:"одноклассник", name:"Дима", x:800, y:this.world.groundY-72, w:60, h:80, subject:"history", speed:60},
+            {type:"enemy", id:"hi_t1", difficulty:"hard", role:"учитель", name:"Учитель истории", x:1460, y:this.world.groundY-72, w:60, h:80, subject:"history", speed:60},
+            // Коллекционный предмет для истории
+            {type:'collectible', id:'history_c1', x:1500, y:this.world.groundY-260, w:26, h:26, value:5},
           ];
           const p=this.player;
           p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
@@ -769,11 +795,15 @@ function pickQuestion(subject, difficulty){
             {x:700, y:this.world.groundY-220, w:260, h:18},
             {x:1140, y:this.world.groundY-160, w:260, h:18},
             {x:1560, y:this.world.groundY-230, w:260, h:18},
+            // Движущаяся платформа для физики
+            {x:900, y:this.world.groundY-220, w:140, h:18, move:{axis:'x', range:160, speed:50}},
           ];
           this.objects = [
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
-            {type:"enemy", id:"ph_s1", difficulty:"easy", role:"одноклассник", name:"Игорь", x:760, y:this.world.groundY-72, w:60, h:80, subject:"physics"},
-            {type:"enemy", id:"ph_t1", difficulty:"hard", role:"учитель", name:"Учитель физики", x:1420, y:this.world.groundY-72, w:60, h:80, subject:"physics"},
+            {type:"enemy", id:"ph_s1", difficulty:"easy", role:"одноклассник", name:"Игорь", x:760, y:this.world.groundY-72, w:60, h:80, subject:"physics", speed:80},
+            {type:"enemy", id:"ph_t1", difficulty:"hard", role:"учитель", name:"Учитель физики", x:1420, y:this.world.groundY-72, w:60, h:80, subject:"physics", speed:80},
+            // Коллекционный предмет для физики
+            {type:'collectible', id:'physics_c1', x:1500, y:this.world.groundY-260, w:26, h:26, value:5},
           ];
           const p=this.player;
           p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
@@ -793,11 +823,15 @@ function pickQuestion(subject, difficulty){
             {x:760, y:this.world.groundY-200, w:260, h:18},
             {x:1220, y:this.world.groundY-150, w:260, h:18},
             {x:1680, y:this.world.groundY-220, w:260, h:18},
+            // Движущаяся вертикальная платформа для информатики
+            {x:900, y:this.world.groundY-220, w:140, h:18, move:{axis:'y', range:100, speed:40}},
           ];
           this.objects = [
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
-            {type:"enemy", id:"cs_s1", difficulty:"easy", role:"одноклассник", name:"Маша", x:860, y:this.world.groundY-72, w:60, h:80, subject:"cs"},
-            {type:"enemy", id:"cs_t1", difficulty:"hard", role:"учитель", name:"Учитель информатики", x:1500, y:this.world.groundY-72, w:60, h:80, subject:"cs"},
+            {type:"enemy", id:"cs_s1", difficulty:"easy", role:"одноклассник", name:"Маша", x:860, y:this.world.groundY-72, w:60, h:80, subject:"cs", speed:70},
+            {type:"enemy", id:"cs_t1", difficulty:"hard", role:"учитель", name:"Учитель информатики", x:1500, y:this.world.groundY-72, w:60, h:80, subject:"cs", speed:70},
+            // Коллекционный предмет для информатики
+            {type:'collectible', id:'cs_c1', x:1700, y:this.world.groundY-260, w:26, h:26, value:5},
           ];
           const p=this.player;
           p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
@@ -818,6 +852,8 @@ function pickQuestion(subject, difficulty){
             {x:720, y:this.world.groundY-170, w:240, h:18},
             {x:1150, y:this.world.groundY-130, w:220, h:18},
             {x:1550, y:this.world.groundY-190, w:260, h:18},
+            // Движущаяся платформа на экзамене
+            {x:1200, y:this.world.groundY-210, w:140, h:18, move:{axis:'x', range:160, speed:60}},
           ];
 
           // Состояние экзамена
@@ -831,8 +867,10 @@ function pickQuestion(subject, difficulty){
           const boss = EXAM_BOSSES[this.exam.bossIndex];
           this.objects = [
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
-            {type:"enemy", id: boss.id, difficulty:"hard", role: boss.role, name: boss.name, x:980, y:this.world.groundY-72, w:60, h:80, subject:"exam"},
+            {type:"enemy", id: boss.id, difficulty:"hard", role: boss.role, name: boss.name, x:980, y:this.world.groundY-72, w:60, h:80, subject:"exam", speed:75},
             {type:"decor", x:1850, y:this.world.groundY-240, w:260, h:240, label:"Экзамен", text:"Соберись! Ты справишься 💪"},
+            // Коллекционный предмет на экзамене
+            {type:'collectible', id:'exam_c1', x:1600, y:this.world.groundY-260, w:26, h:26, value:7},
           ];
 
           const p = this.player;
@@ -862,6 +900,22 @@ function pickQuestion(subject, difficulty){
           this.input.actPressed = false;
           return;
         }
+
+        // Обновляем таймер уровня. Если он активен, отображаем значение и, если время закончилось, завершаем уровень
+        if(this.mode === 'level' && this.levelTime != null){
+          this.levelTime -= dt;
+          if(this.levelTime < 0) this.levelTime = 0;
+          const tv = document.getElementById('hud-timer-val');
+          if(tv) tv.textContent = String(Math.ceil(this.levelTime));
+          if(this.levelTime <= 0){
+            // Время вышло: возвращаемся в хаб
+            if(typeof modal !== 'undefined' && modal && typeof modal.open === 'function'){
+              modal.open('⌛ Время вышло', 'Время на уровень закончилось! Попробуй снова.');
+            }
+            this.loadHub();
+            return;
+          }
+        }
         const p = this.player;
         const dir = (this.input.left ? -1 : 0) + (this.input.right ? 1 : 0);
         p.vx = dir * p.speed;
@@ -872,6 +926,35 @@ function pickQuestion(subject, difficulty){
           p.onGround = false;
         }
         this.input.jumpPressed = false;
+
+        // Обновляем движущиеся платформы (если есть). У каждой такой платформы должно быть поле move:{axis:'x'|'y', range, speed}
+        for(const pl of this.platforms){
+          if(pl && pl.move){
+            if(pl.startX === undefined){ pl.startX = pl.x; pl.startY = pl.y; pl.dir = pl.dir || 1; }
+            const m = pl.move;
+            if(m.axis === 'x'){
+              pl.x += m.speed * dt * pl.dir;
+              if(pl.x < pl.startX - m.range){
+                pl.x = pl.startX - m.range;
+                pl.dir = 1;
+              }
+              if(pl.x > pl.startX + m.range){
+                pl.x = pl.startX + m.range;
+                pl.dir = -1;
+              }
+            } else if(m.axis === 'y'){
+              pl.y += m.speed * dt * pl.dir;
+              if(pl.y < pl.startY - m.range){
+                pl.y = pl.startY - m.range;
+                pl.dir = 1;
+              }
+              if(pl.y > pl.startY + m.range){
+                pl.y = pl.startY + m.range;
+                pl.dir = -1;
+              }
+            }
+          }
+        }
 
         p.vy += 1400 * dt;
         p.x += p.vx * dt;
@@ -906,8 +989,18 @@ function pickQuestion(subject, difficulty){
                 o.vy = 0;
                 o.onGround = false;
                 o.aiDir = (Math.random() < 0.5) ? -1 : 1;
-                o.aiSpeed = 60 + Math.random()*30;     // пикс/сек
-                o.aiRange = 120 + Math.random()*60;    // туда-сюда
+                // скорость движения: если объекту назначена собственная скорость, используем её, иначе случайную
+                if(typeof o.speed === 'number'){
+                  o.aiSpeed = o.speed;
+                } else {
+                  o.aiSpeed = 60 + Math.random()*30; // пикс/сек
+                }
+                // диапазон движения: если указан, используем, иначе случайный
+                if(typeof o.range === 'number'){
+                  o.aiRange = o.range;
+                } else {
+                  o.aiRange = 120 + Math.random()*60; // туда-сюда
+                }
                 o.jumpCD = 0.6 + Math.random()*1.4;    // сек
                 o.jumpT = o.jumpCD;
               }
@@ -975,6 +1068,22 @@ function pickQuestion(subject, difficulty){
           this.tryInteract(modal);
         }
         this.input.actPressed = false;
+
+        // Подбор коллекционных предметов: если игрок сталкивается с объектом типа collectible, добавляем знания и удаляем предмет
+        if(Array.isArray(this.objects)){
+          for(let i = this.objects.length - 1; i >= 0; i--){
+            const obj = this.objects[i];
+            if(obj && obj.type === 'collectible'){
+              const pr = {x: p.x, y: p.y, w: p.w, h: p.h};
+              if(rectsOverlap(pr, obj)){
+                const val = obj.value || 1;
+                this.objects.splice(i, 1);
+                const gained = addKnowledge(val);
+                modal.open('⭐ Предмет найден!', `Поздравляем! Вы нашли предмет и получили +${gained} знаний.`);
+              }
+            }
+          }
+        }
       },
       tryInteract(modal){
         try{
@@ -1087,7 +1196,7 @@ function pickQuestion(subject, difficulty){
                     modal.open('🎓 Экзамен сдан!', `Поздравляю! Ты победил директора 🎉\n+${extra} знаний. Возвращайся в коридор через дверь «Выход».`);
                   } else {
                     const next = EXAM_BOSSES[this.exam.bossIndex];
-                    this.objects.push({type:'enemy', id: next.id, difficulty:'hard', role: next.role, name: next.name, x: 980, y:this.world.groundY-72, w:60, h:80, subject:'exam'});
+                    this.objects.push({type:'enemy', id: next.id, difficulty:'hard', role: next.role, name: next.name, x: 980, y:this.world.groundY-72, w:60, h:80, subject:'exam', speed:75});
                     modal.open('⚔ Следующий противник!', `${next.role.toUpperCase()}: ${next.name}. Готов?`);
                   }
                 }
@@ -1159,7 +1268,11 @@ function pickQuestion(subject, difficulty){
         ctx.globalAlpha = 1;
 
         for(const o of this.objects){
-          if(o.type === "door"){
+          if(o.type === 'collectible'){
+            // Рисуем предметы для сбора (звёзды) ярким цветом
+            this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(253,224,71,.65)", "rgba(255,255,255,.25)");
+            this.drawLabel(ctx, o.x + o.w/2, o.y - 10, "⭐");
+          } else if(o.type === "door"){
             this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(31,111,235,.25)", "rgba(255,255,255,.22)");
             this.drawRect(ctx, o.x+16, o.y+18, o.w-32, 30, "rgba(255,255,255,.16)", "rgba(255,255,255,.18)");
             this.drawLabel(ctx, o.x+o.w/2, o.y-10, `🚪 ${o.subject}`);
@@ -1251,6 +1364,93 @@ function pickQuestion(subject, difficulty){
       btn.addEventListener("pointerup", onUp, {passive:false});
       btn.addEventListener("pointercancel", onUp, {passive:false});
       btn.addEventListener("pointerleave", onUp, {passive:false});
+    }
+
+    // --- жесты (gesture-first) ---
+    // Для мобильных устройств добавляем управление жестами: свайпы влево/вправо для движения,
+    // свайп вверх для прыжка и короткий тап для действия. Отрабатывает только на холсте игры.
+    (function(){
+      const canvasEl = $("game");
+      if(!canvasEl) return;
+      let touchActive = false;
+      let startX = 0, startY = 0;
+      let moved = false;
+      let downTime = 0;
+      const THRESH = 24; // порог движения в пикселях для распознавания жеста
+
+      function handleDown(e){
+        if(e.pointerType && e.pointerType !== "touch") return;
+        touchActive = true;
+        moved = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        downTime = performance.now();
+      }
+      function handleMove(e){
+        if(!touchActive) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        // горизонтальное управление
+        if(Math.abs(dx) > THRESH){
+          moved = true;
+          if(dx > 0){
+            game.input.left = false;
+            game.input.right = true;
+          } else {
+            game.input.right = false;
+            game.input.left = true;
+          }
+        } else {
+          // если движение маленькое — прекращаем движение
+          game.input.left = false;
+          game.input.right = false;
+        }
+        // вертикальный свайп вверх — прыжок
+        if(dy < -THRESH){
+          if(!game.input.locked) game.input.jumpPressed = true;
+          // обновляем startY, чтобы не спамить прыжками
+          startY = e.clientY;
+        }
+      }
+      function handleUp(e){
+        if(!touchActive) return;
+        // сбросить управление
+        game.input.left = false;
+        game.input.right = false;
+        // короткий тап без движения — действие
+        const dt = performance.now() - downTime;
+        if(!moved && dt < 300){
+          if(!game.input.locked) game.input.actPressed = true;
+        }
+        touchActive = false;
+      }
+      canvasEl.addEventListener("pointerdown", handleDown, {passive:false});
+      canvasEl.addEventListener("pointermove", handleMove, {passive:false});
+      canvasEl.addEventListener("pointerup", handleUp, {passive:false});
+      canvasEl.addEventListener("pointercancel", handleUp, {passive:false});
+    })();
+
+    // Дополнительное управление на мобильных устройствах через гироскоп/акселерометр.
+    // Если поддерживается DeviceOrientationEvent (наклон), используем гамма (лево-право) для движения.
+    if(window.DeviceOrientationEvent){
+      const ORIENT_THRESH = 10; // в градусах: чувствительность наклона
+      window.addEventListener('deviceorientation', (e)=>{
+        if(game.input.locked) return;
+        const g = e.gamma;
+        if(typeof g === 'number'){
+          if(g > ORIENT_THRESH){
+            game.input.right = true;
+            game.input.left = false;
+          } else if(g < -ORIENT_THRESH){
+            game.input.left = true;
+            game.input.right = false;
+          } else {
+            // небольшой наклон — прекращаем движение, если управление не задействовано тачем/клавишами
+            game.input.left = false;
+            game.input.right = false;
+          }
+        }
+      });
     }
   }
 
