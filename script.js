@@ -87,7 +87,13 @@
 
     // === ПРОГРЕСС (localStorage) ===
     const STORE_KEY = "school1430_progress_v1";
-    const defaultProgress = { knowledge: 10, upgrades: { tries:0, time:0, hint:0, bonus:0 } };
+    
+function normalizeSubject(s){
+  const m = {rus:"russian",ru:"russian",russian:"russian",math:"math",physics:"physics",phys:"physics",history:"history",hist:"history",cs:"cs",inf:"cs",info:"cs",it:"cs",exam:"exam"};
+  return m[s] || s;
+}
+
+const defaultProgress = { knowledge: 10, upgrades: { tries:0, time:0, hint:0, bonus:0 } };
 
     function loadProgress(){
       try{
@@ -277,10 +283,14 @@ return p;
         this.onWin = payload.onWin || null;
         this.onFail = payload.onFail || null;
 
+        // ВАЖНО: сбрасываем и ставим фабрику СРАЗУ, чтобы не подтягивать старую
+        this.makeNext = payload.makeNext || null;
+
         this.title.textContent = payload.title;
 
-        // Если это серия — берём вопрос из фабрики
+        // Если это серия — берём вопрос из фабрики, иначе из payload
         const first = this.makeNext ? this.makeNext() : {q: payload.question, options: payload.options, correct: payload.correct};
+
         this.q.textContent = first.q;
 
         // Параметры с учётом улучшений и сложности уровня
@@ -386,6 +396,10 @@ return p;
               this.q.textContent = next.q;
               this.correctIndex = next.correct;
               this.opts.innerHTML = "";
+              if(!next || !Array.isArray(next.options)){
+                this.close(false);
+                return;
+              }
               next.options.forEach((txt, i)=>{
                 const b = document.createElement("button");
                 b.className = "quiz__opt";
@@ -434,32 +448,9 @@ return p;
     };
 
     // Вопросы по предметам (пока один уровень: Математика)
-    const QUESTIONS = {
-      exam: {
-        hard: [
-          {q:"Сколько градусов в сумме углов треугольника?", options:["90","180","270","360"], correct:1},
-          {q:"Найди 30% от 200.", options:["40","50","60","70"], correct:2},
-          {q:"Что такое алгоритм?", options:["Случай", "Точный план действий", "Ошибка", "Игрушка"], correct:1},
-          {q:"Кто отменил крепостное право в России?", options:["Пётр I","Александр II","Иван IV","Екатерина II"], correct:1},
-          {q:"Сила тока измеряется в…", options:["Вольтах","Омах","Амперах","Герцах"], correct:2},
-          {q:"Подлежащее — это…", options:["Главный член предложения", "Знак препинания", "Часть слова", "Время"], correct:0},
-        ]
-      },
-      math: {
-        easy: [
-          {q:"Сколько будет 7 + 5?", options:["10","11","12","13"], correct:2},
-          {q:"Сколько будет 9 − 4?", options:["3","4","5","6"], correct:2},
-          {q:"Сколько будет 3 × 4?", options:["7","10","12","14"], correct:2},
-          {q:"Сколько будет 16 ÷ 4?", options:["2","3","4","5"], correct:2},
-        ],
-        hard: [
-          {q:"Чему равен (2x + 3), если x = 5?", options:["10","11","12","13"], correct:3},
-          {q:"Сколько градусов в сумме углов треугольника?", options:["90","180","270","360"], correct:1},
-          {q:"Найди 25% от 80.", options:["10","15","20","25"], correct:2},
-          {q:"Реши: 3² + 4² = ?", options:["7","25","49","16"], correct:1},
-        ]
-      }
-    };
+    
+    const QUESTIONS = window.QUESTIONS || {};
+
 
     
     // Настройки сложности (Этап 6)
@@ -590,7 +581,9 @@ function pickQuestion(subject, difficulty){
     // --- игра ---
     const game = {
       running:false, raf:0, lastT:0,
-      world:{ w:3200, h:720, groundY:520 },
+      // Добавляем константу g для гравитации. Это устраняет ошибку, когда в AI врагов
+      // используется this.world.g, которого раньше не существовало (вызывало NaN).
+      world:{ w:3200, h:720, groundY:520, g:1400 },
       camera:{ x:0 },
       input:{ left:false, right:false, jumpPressed:false, actPressed:false, locked:false },
       player:{ x:120, y:0, w:44, h:60, vx:0, vy:0, speed:320, jumpV:560, onGround:false, face:1 },
@@ -670,6 +663,9 @@ function pickQuestion(subject, difficulty){
       },
 
       loadLevel(levelId, mode){
+        // Нормализуем идентификатор уровня, чтобы "rus", "phys" и другие сокращения
+        // корректно преобразовывались в полные названия (russian, physics, history, cs, exam).
+        levelId = normalizeSubject(levelId);
         this.levelMode = mode || 'normal';
         this.mode = "level";
         this.levelId = levelId;
@@ -714,6 +710,103 @@ function pickQuestion(subject, difficulty){
           p.onGround = false;
           this.camera.x = 0;
         }
+
+        // Русский язык
+        if(levelId === "russian"){
+          this.world.w = 2000;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:260, y:this.world.groundY-120, w:240, h:18},
+            {x:650, y:this.world.groundY-190, w:240, h:18},
+            {x:1050, y:this.world.groundY-150, w:240, h:18},
+            {x:1480, y:this.world.groundY-210, w:240, h:18},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"ru_s1", difficulty:"easy", role:"одноклассник", name:"Аня", x:740, y:this.world.groundY-72, w:60, h:80, subject:"russian"},
+            {type:"enemy", id:"ru_t1", difficulty:"hard", role:"учитель", name:"Учитель русского", x:1320, y:this.world.groundY-72, w:60, h:80, subject:"russian"},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: Русский (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "Русский: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
+        // История
+        if(levelId === "history"){
+          this.world.w = 2100;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:340, y:this.world.groundY-110, w:260, h:18},
+            {x:760, y:this.world.groundY-180, w:260, h:18},
+            {x:1200, y:this.world.groundY-140, w:260, h:18},
+            {x:1640, y:this.world.groundY-200, w:260, h:18},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"hi_s1", difficulty:"easy", role:"одноклассник", name:"Дима", x:800, y:this.world.groundY-72, w:60, h:80, subject:"history"},
+            {type:"enemy", id:"hi_t1", difficulty:"hard", role:"учитель", name:"Учитель истории", x:1460, y:this.world.groundY-72, w:60, h:80, subject:"history"},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: История (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "История: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
+        // Физика
+        if(levelId === "physics"){
+          this.world.w = 2100;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:280, y:this.world.groundY-140, w:260, h:18},
+            {x:700, y:this.world.groundY-220, w:260, h:18},
+            {x:1140, y:this.world.groundY-160, w:260, h:18},
+            {x:1560, y:this.world.groundY-230, w:260, h:18},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"ph_s1", difficulty:"easy", role:"одноклассник", name:"Игорь", x:760, y:this.world.groundY-72, w:60, h:80, subject:"physics"},
+            {type:"enemy", id:"ph_t1", difficulty:"hard", role:"учитель", name:"Учитель физики", x:1420, y:this.world.groundY-72, w:60, h:80, subject:"physics"},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: Физика (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "Физика: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
+        // Информатика
+        if(levelId === "cs"){
+          this.world.w = 2200;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:320, y:this.world.groundY-120, w:260, h:18},
+            {x:760, y:this.world.groundY-200, w:260, h:18},
+            {x:1220, y:this.world.groundY-150, w:260, h:18},
+            {x:1680, y:this.world.groundY-220, w:260, h:18},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"cs_s1", difficulty:"easy", role:"одноклассник", name:"Маша", x:860, y:this.world.groundY-72, w:60, h:80, subject:"cs"},
+            {type:"enemy", id:"cs_t1", difficulty:"hard", role:"учитель", name:"Учитель информатики", x:1500, y:this.world.groundY-72, w:60, h:80, subject:"cs"},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: Информатика (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "Информатика: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
 
         // Экзамен: финальный уровень
         if(levelId === "exam"){
@@ -800,6 +893,80 @@ function pickQuestion(subject, difficulty){
           }
         }
 
+        
+        // --- ENEMY_AI: простое движение врагов (чтобы не стояли столбиками) ---
+        if(this.mode === "level" && Array.isArray(this.objects)){
+          for(const o of this.objects){
+            if(o && o.type === "enemy"){
+              // init
+              if(o.aiInit !== true){
+                o.aiInit = true;
+                o.startX = o.x;
+                o.vx = 0;
+                o.vy = 0;
+                o.onGround = false;
+                o.aiDir = (Math.random() < 0.5) ? -1 : 1;
+                o.aiSpeed = 60 + Math.random()*30;     // пикс/сек
+                o.aiRange = 120 + Math.random()*60;    // туда-сюда
+                o.jumpCD = 0.6 + Math.random()*1.4;    // сек
+                o.jumpT = o.jumpCD;
+              }
+
+              // туда-сюда
+              const leftX = o.startX - o.aiRange;
+              const rightX = o.startX + o.aiRange;
+              if(o.x < leftX) o.aiDir = 1;
+              if(o.x > rightX) o.aiDir = -1;
+
+              o.vx = o.aiDir * o.aiSpeed;
+
+              // гравитация
+              o.vy += this.world.g * dt;
+
+              // прыжок иногда (только если на земле)
+              o.jumpT -= dt;
+              if(o.onGround && o.jumpT <= 0){
+                o.vy = -(260 + Math.random()*60);
+                o.onGround = false;
+                o.jumpT = o.jumpCD;
+              }
+
+              // движение
+              o.x += o.vx * dt;
+              o.y += o.vy * dt;
+
+              // границы мира
+              o.x = clamp(o.x, 0, this.world.w - o.w);
+
+              // земля
+              if(o.y + o.h >= this.world.groundY){
+                o.y = this.world.groundY - o.h;
+                o.vy = 0;
+                o.onGround = true;
+              }
+
+              // коллизии с платформами (упрощённо как у игрока)
+              const or = {x:o.x, y:o.y, w:o.w, h:o.h};
+              for(const pl of this.platforms){
+                const pr = or;
+                if(rectsOverlap(pr, pl)){
+                  // падал сверху
+                  if(o.vy > 0 && (o.y + o.h - o.vy*dt) <= pl.y + 6){
+                    o.y = pl.y - o.h;
+                    o.vy = 0;
+                    o.onGround = true;
+                  } else {
+                    // отталкиваем по X
+                    if(o.vx > 0) o.x = pl.x - o.w;
+                    if(o.vx < 0) o.x = pl.x + pl.w;
+                    o.aiDir *= -1;
+                  }
+                }
+              }
+            }
+          }
+        }
+
         const viewW = canvas.getBoundingClientRect().width;
         const target = p.x + p.w/2 - viewW/2;
         this.camera.x = clamp(target, 0, this.world.w - viewW);
@@ -859,7 +1026,8 @@ function pickQuestion(subject, difficulty){
           openShop();
 
         } else if(t === "door"){
-          if(best.subject === "math" || best.subject === "exam"){
+          const s = normalizeSubject(best.subject);
+        if(s === "math" || s === "exam" || s === "russian" || s === "history" || s === "physics" || s === "cs"){
             // Показываем выбор сложности
             diffUI.open(best);
           } else {
@@ -881,7 +1049,9 @@ function pickQuestion(subject, difficulty){
           quiz.open({
             title,
             mode: this.levelMode || 'normal',
-            seriesLeft: (diff === 'easy' ? 1 : 2) + (DIFF[this.levelMode || 'normal']?.extraQuestions || 0),
+            seriesLeft: (diff === 'easy' ? 1 : 2)
+              + (DIFF[this.levelMode || 'normal']?.extraQuestions || 0)
+              + ((this.levelMode || 'normal') === 'hard' ? 1 : 0),
             makeNext: () => pickQuestion(subj, diff),
             onFail: () => {
               // На экзамене ошибки уменьшают уверенность

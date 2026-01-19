@@ -434,3 +434,5 @@ button, .touch-btn{
 .touch-controls button{
   user-select:none;
 }
+
+.menu button{font-weight:600;}

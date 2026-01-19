@@ -18,9 +18,9 @@
   <section id="screen-menu" class="screen screen-menu hidden" aria-label="Главное меню">
     <div class="panel">
       <div class="panel__title">Школа 1430</div>
-      <button id="btn-start" class="btn btn-primary">▶ Начать игру</button>
-        <button id="btn-progress" class="btn">📊 Прогресс</button>
-      <button id="btn-about" class="btn">ℹ О проекте</button>
+      <button id="btn-start" class="btn btn-primary"> Начать игру</button>
+        
+      <button id="btn-about" class="btn"> О проекте</button>
       <div class="hint">Управление: ← → / A D, прыжок — пробел, действие — E/У<br>На телефоне — кнопки снизу.</div>
     </div>
   </section>
@@ -164,7 +164,7 @@
     <!-- ПРОГРЕСС (Этап 8) -->
     <div id="progressModal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal__card">
-        <div class="modal__title">📊 Мой прогресс</div>
+        <div class="modal__title"> Мой прогресс</div>
         <div id="progressBody" class="modal__text"></div>
         <div class="modal__actions">
           <button id="btn-progress-close" class="btn btn-primary">Закрыть</button>
@@ -176,7 +176,7 @@
     <div class="touch-controls" aria-label="Тач управление">
       <div class="touch-controls__left">
         <button class="tbtn" data-touch="left">◀</button>
-        <button class="tbtn" data-touch="right">▶</button>
+        <button class="tbtn" data-touch="right"></button>
       </div>
       <div class="touch-controls__right">
         <button class="tbtn" data-touch="jump">⤒</button>
@@ -185,6 +185,7 @@
     </div>
   </section>
 
+  <script src="questions.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
