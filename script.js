@@ -24,8 +24,19 @@
   }
 
   // Если вообще случится JS-ошибка — не зависаем на загрузке.
-  window.addEventListener("error", () => {
-    setTimeout(showMenuSafely, 0);
+  window.addEventListener("error", (e) => {
+    console.error(e?.error || e);
+    try{
+      const msg = (e && e.error && e.error.message) ? e.error.message : "Неизвестная ошибка";
+      const dbg = document.getElementById("hud-debug");
+      if(dbg) dbg.textContent = "Ошибка: " + msg;
+
+      // Если ошибка произошла на экране загрузки — гарантируем переход в меню
+      const loading = document.getElementById("screen-loading");
+      if(loading && !loading.classList.contains("hidden")){
+        showMenuSafely();
+      }
+    }catch(_){}
   });
 
   // Фолбэк-таймер: даже если init не сработал — через 6 секунд меню обязано появиться.
@@ -799,6 +810,7 @@ function pickQuestion(subject, difficulty){
         this.input.actPressed = false;
       },
       tryInteract(modal){
+        try{
         const dbg = $("hud-debug");
         if(dbg) dbg.textContent = "Статус: ищу объект рядом…";
 
@@ -921,6 +933,14 @@ function pickQuestion(subject, difficulty){
               }
             }
           });
+        }
+        }catch(err){
+          console.error(err);
+          const dbg = $("hud-debug");
+          if(dbg) dbg.textContent = "Ошибка взаимодействия: " + (err && err.message ? err.message : String(err));
+          if(modal && typeof modal.open === 'function'){
+            modal.open("⚠ Ошибка", "Похоже, случилась маленькая ошибка при взаимодействии. Попробуй ещё раз 🙂");
+          }
         }
       },
       worldToScreen(x,y){ return { x: x - this.camera.x, y }; },
