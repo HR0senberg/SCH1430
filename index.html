@@ -19,6 +19,7 @@
     <div class="panel">
       <div class="panel__title">Школа 1430</div>
       <button id="btn-start" class="btn btn-primary">▶ Начать игру</button>
+        <button id="btn-progress" class="btn">📊 Прогресс</button>
       <button id="btn-about" class="btn">ℹ О проекте</button>
       <div class="hint">Управление: ← → / A D, прыжок — пробел, действие — E/У<br>На телефоне — кнопки снизу.</div>
     </div>
@@ -156,6 +157,19 @@
         </div>
 
         <div id="quiz-msg" class="quiz__msg"></div>
+      </div>
+    </div>
+
+
+    <!-- ПРОГРЕСС (Этап 8) -->
+    <div id="progressModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal__card">
+        <div class="modal__title">📊 Мой прогресс</div>
+        <div id="progressBody" class="modal__text"></div>
+        <div class="modal__actions">
+          <button id="btn-progress-close" class="btn btn-primary">Закрыть</button>
+          <button id="btn-progress-reset" class="btn">Сбросить прогресс</button>
+        </div>
       </div>
     </div>
 

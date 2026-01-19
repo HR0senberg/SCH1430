@@ -90,14 +90,29 @@
             if(typeof raw.upgrades[k] === "number") p.upgrades[k] = raw.upgrades[k];
           }
         }
-        return p;
+        
+        if(raw.defeated && typeof raw.defeated === "object") p.defeated = raw.defeated;
+        if(raw.completedLevels && typeof raw.completedLevels === "object") p.completedLevels = raw.completedLevels;
+        if(raw.achievements && typeof raw.achievements === "object") p.achievements = raw.achievements;
+        if(raw.levelDifficulty && typeof raw.levelDifficulty === "object") p.levelDifficulty = raw.levelDifficulty;
+return p;
       }catch(e){
         return JSON.parse(JSON.stringify(defaultProgress));
       }
     }
     function saveProgress(p){ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }
 
-    const progress = loadProgress();
+
+    function unlockAchievement(key, title){
+      if(!progress.achievements) progress.achievements = {};
+      if(progress.achievements[key]) return false;
+      progress.achievements[key] = { title, ts: Date.now() };
+      saveProgress(progress);
+      modal.open("🏅 Достижение!", title);
+      return true;
+    }
+
+    let progress = loadProgress();
 
     function totalUpg(){
       const u = progress.upgrades;
@@ -151,6 +166,7 @@
           progress.upgrades[type] = (progress.upgrades[type] || 0) + 1;
           saveProgress(progress);
           updateHUD();
+        unlockAchievement('first_buy','Первая покупка в библиотеке! 📚');
           modal.open("✅ Куплено!", "Отлично! Улучшение сохранено и будет работать на уровнях.");
         });
       });
@@ -178,6 +194,7 @@
       return !!(progress.defeated[levelId] && progress.defeated[levelId][enemyId]);
     }
     function setDefeated(levelId, enemyId){
+      if(!progress.defeated) progress.defeated = {};
       if(!progress.defeated[levelId]) progress.defeated[levelId] = {};
       progress.defeated[levelId][enemyId] = true;
       saveProgress(progress);
@@ -509,6 +526,41 @@ function pickQuestion(subject, difficulty){
 
     modal.ok.addEventListener("click", () => modal.close());
     modal.root.addEventListener("click", (e) => { if(e.target === modal.root) modal.close(); });
+
+    // === Окно прогресса (Этап 8) ===
+    $("btn-progress")?.addEventListener("click", () => {
+      const pm = $("progressModal");
+      const body = $("progressBody");
+      if(!pm || !body) return;
+
+      const done = Object.keys(progress.completedLevels || {}).filter(k => progress.completedLevels[k]);
+      const defeated = progress.defeated ? Object.values(progress.defeated).reduce((acc, map)=>acc + Object.keys(map||{}).length, 0) : 0;
+      const ach = progress.achievements || {};
+      const achList = Object.keys(ach).map(k => ach[k].title);
+
+      body.innerHTML = [
+        `<b>Знания:</b> ${progress.knowledge}`,
+        `<b>Улучшения:</b> попытки +${progress.upgrades.tries||0}, время +${(progress.upgrades.time||0)*5}с, подсказки +${progress.upgrades.hint||0}, бонус +${(progress.upgrades.bonus||0)*10}%`,
+        `<b>Побеждено противников:</b> ${defeated}`,
+        `<b>Пройдено уровней:</b> ${done.length ? done.join(", ") : "пока нет"}`,
+        `<b>Достижения:</b> ${achList.length ? achList.map(x=>`• ${x}`).join("<br>") : "пока нет"}`
+      ].join("<br><br>");
+
+      pm.classList.remove("hidden");
+    });
+
+    $("btn-progress-close")?.addEventListener("click", ()=>$("progressModal")?.classList.add("hidden"));
+    $("progressModal")?.addEventListener("click", (e)=>{ if(e.target === $("progressModal")) $("progressModal").classList.add("hidden"); });
+
+    $("btn-progress-reset")?.addEventListener("click", ()=>{
+      localStorage.removeItem("school1430_progress_v1");
+      progress = loadProgress();
+      if(!progress.achievements) progress.achievements = {};
+      updateHUD();
+      $("progressModal")?.classList.add("hidden");
+      modal.open("Сброс", "Прогресс сброшен. Можно начинать заново 🙂");
+    });
+
 
     // --- canvas / resize ---
     const canvas = $("game");
@@ -847,6 +899,7 @@ function pickQuestion(subject, difficulty){
                   this.exam.bossIndex += 1;
                   if(this.exam.bossIndex >= EXAM_BOSSES.length){
                     progress.completedLevels['exam'] = true;
+                    unlockAchievement('exam_pass','Экзамен сдан! 🎓');
                     saveProgress(progress);
                     const extra = addKnowledge(25);
                     modal.open('🎓 Экзамен сдан!', `Поздравляю! Ты победил директора 🎉\n+${extra} знаний. Возвращайся в коридор через дверь «Выход».`);
@@ -861,6 +914,7 @@ function pickQuestion(subject, difficulty){
               const left = this.objects.filter(o => o.type === "enemy").length;
               if(left === 0 && this.levelId !== 'exam'){
                 progress.completedLevels[this.levelId] = true;
+                unlockAchievement('first_level','Первый пройденный уровень! 🏆');
                 saveProgress(progress);
                 const extra = addKnowledge(10);
                 modal.open("🏆 Уровень пройден!", `Молодец! Уровень «Математика» пройден. +${extra} знаний.\nТеперь можно выйти через дверь «Выход» слева.`);
@@ -1016,4 +1070,6 @@ function pickQuestion(subject, difficulty){
   } else {
     init();
   }
-})();
+}
+
+)();
