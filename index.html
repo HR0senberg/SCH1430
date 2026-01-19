@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Школа 1430 — Платформер</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <section id="screen-loading" class="screen screen-loading" aria-label="Загрузка">
+    <div class="loading-center">
+      <div class="loading-title">Школа 1430</div>
+      <div class="loading-sub">Загружаем школьные приключения…</div>
+      <div class="loading-bar" aria-hidden="true"><div class="loading-bar__fill"></div></div>
+    </div>
+  </section>
+
+  <section id="screen-menu" class="screen screen-menu hidden" aria-label="Главное меню">
+    <div class="panel">
+      <div class="panel__title">Школа 1430</div>
+      <button id="btn-start" class="btn btn-primary">▶ Начать игру</button>
+      <button id="btn-about" class="btn">ℹ О проекте</button>
+      <div class="hint">Управление: ← → / A D, прыжок — пробел, действие — E/У<br>На телефоне — кнопки снизу.</div>
+    </div>
+  </section>
+
+  <section id="screen-about" class="screen screen-about hidden" aria-label="О проекте">
+    <div class="panel panel-wide">
+      <div class="panel__title">О проекте</div>
+      <div class="about-text">
+        <p><b>Школа 1430</b> — это место, где мы учимся, дружим и пробуем себя в IT.</p>
+        <p>Этот проект — <b>учебная веб-игра</b> (2D-платформер), сделанная для школьной защиты и конкурсов.</p>
+        <p>В игре будет общий коридор, кабинеты-предметы, вопросы от одноклассников и учителей, а в финале — экзамен!</p>
+      </div>
+      <button id="btn-back" class="btn">← Назад</button>
+    </div>
+  </section>
+
+  <section id="screen-game" class="screen screen-game hidden" aria-label="Игра">
+    <div class="hud">
+      <div class="hud__left">
+        <div class="badge">Хаб: школьный коридор</div>
+        <div id="hud-tip" class="hud__tip">Подойди к человеку/двери и нажми <b>E</b> или <b>У</b> (или ✋).</div>
+                <div id="hud-debug" class="hud__debug">Знания: <b><span id="hud-knowledge">10</span></b> · Улучшения: <span id="hud-upg">0</span></div>
+      </div>
+      <div class="hud__right">
+        <button id="btn-exit-to-menu" class="btn btn-small">⟵ Меню</button>
+      <div id="exam-hud" class="examHud hidden" aria-live="polite">
+        <div class="examHud__title">Экзамен: уверенность</div>
+        <div class="examHud__bar"><div id="exam-bar" class="examHud__fill" style="width:100%"></div></div>
+        <div id="exam-val" class="examHud__val">100%</div>
+      </div>
+
+      </div>
+    </div>
+
+    <canvas id="game" width="1280" height="720"></canvas>
+
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal__card">
+        <div id="modal-title" class="modal__title">Диалог</div>
+        <div id="modal-text" class="modal__text"></div>
+        <div class="modal__actions">
+          <button id="modal-ok" class="btn btn-primary">Ок</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- БИБЛИОТЕКА (МАГАЗИН УЛУЧШЕНИЙ) -->
+    <div id="shop" class="shop hidden" role="dialog" aria-modal="true">
+      <div class="shop__card">
+        <div class="shop__title">📚 Библиотека — улучшения</div>
+        <div class="shop__balance">Знания: <b><span id="shop-knowledge">0</span></b></div>
+
+        <div class="shop__list">
+          <div class="shop__item">
+            <div class="shop__col">
+              <div class="shop__name">📚 Больше попыток</div>
+              <div class="shop__desc">+1 попытка на вопросы</div>
+            </div>
+            <button data-buy="tries" class="btn btn-primary btn-small">Купить (5)</button>
+          </div>
+
+          <div class="shop__item">
+            <div class="shop__col">
+              <div class="shop__name">⏱ Больше времени</div>
+              <div class="shop__desc">+5 секунд на ответ</div>
+            </div>
+            <button data-buy="time" class="btn btn-primary btn-small">Купить (5)</button>
+          </div>
+
+          <div class="shop__item">
+            <div class="shop__col">
+              <div class="shop__name">💡 Подсказки</div>
+              <div class="shop__desc">+1 подсказка</div>
+            </div>
+            <button data-buy="hint" class="btn btn-primary btn-small">Купить (5)</button>
+          </div>
+
+          <div class="shop__item">
+            <div class="shop__col">
+              <div class="shop__name">🧠 Бонус к знаниям</div>
+              <div class="shop__desc">+10% знаний за уровни</div>
+            </div>
+            <button data-buy="bonus" class="btn btn-primary btn-small">Купить (10)</button>
+          </div>
+        </div>
+
+        <div class="shop__footer">
+          <button id="shop-close" class="btn">Закрыть</button>
+          <button id="shop-reset" class="btn">Сбросить прогресс</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ВОПРОСЫ (в уровнях) -->
+
+    <!-- ВЫБОР СЛОЖНОСТИ (перед уровнем) -->
+    <div id="difficulty" class="diff hidden" role="dialog" aria-modal="true">
+      <div class="diff__card">
+        <div class="diff__title">Выбери сложность</div>
+        <div class="diff__text">От сложности зависит время, попытки и сколько вопросов будет у противников 🙂</div>
+
+        <div class="diff__grid">
+          <button class="diff__btn" data-diff="easy">😄 Легко</button>
+          <button class="diff__btn" data-diff="normal">🙂 Нормально</button>
+          <button class="diff__btn" data-diff="hard">😅 Сложно</button>
+        </div>
+
+        <button id="diff-cancel" class="btn">Отмена</button>
+      </div>
+    </div>
+
+    <div id="quiz" class="quiz hidden" role="dialog" aria-modal="true">
+      <div class="quiz__card">
+        <div class="quiz__top">
+          <div>
+            <div id="quiz-title" class="quiz__title">Вопрос</div>
+            <div id="quiz-meta" class="quiz__meta">Попытки: 1 · Время: 10с</div>
+          </div>
+          <div class="quiz__timer">
+            <div id="quiz-time" class="quiz__time">10</div>
+            <div class="quiz__timeLabel">сек</div>
+          </div>
+        </div>
+
+        <div id="quiz-q" class="quiz__q">Текст вопроса</div>
+
+        <div id="quiz-opts" class="quiz__opts"></div>
+
+        <div class="quiz__actions">
+          <button id="quiz-hint" class="btn btn-small">💡 Подсказка</button>
+          <button id="quiz-close" class="btn btn-small">Закрыть</button>
+        </div>
+
+        <div id="quiz-msg" class="quiz__msg"></div>
+      </div>
+    </div>
+
+    <div class="touch-controls" aria-label="Тач управление">
+      <div class="touch-controls__left">
+        <button class="tbtn" data-touch="left">◀</button>
+        <button class="tbtn" data-touch="right">▶</button>
+      </div>
+      <div class="touch-controls__right">
+        <button class="tbtn" data-touch="jump">⤒</button>
+        <button class="tbtn tbtn-wide" data-touch="act">✋</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>
