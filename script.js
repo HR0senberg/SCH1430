@@ -48,6 +48,8 @@
       menu: $("screen-menu"),
       about: $("screen-about"),
       game: $("screen-game"),
+      // Экран настроек
+      settings: $("screen-settings"),
     };
 
     if(!screens.loading || !screens.menu || !screens.about || !screens.game){
@@ -89,12 +91,27 @@
     const STORE_KEY = "school1430_progress_v1";
     
 function normalizeSubject(s){
-  const m = {rus:"russian",ru:"russian",russian:"russian",math:"math",physics:"physics",phys:"physics",history:"history",hist:"history",cs:"cs",inf:"cs",info:"cs",it:"cs",exam:"exam"};
+  const m = {
+    rus:"russian", ru:"russian", russian:"russian",
+    math:"math",
+    physics:"physics", phys:"physics",
+    history:"history", hist:"history",
+    cs:"cs", inf:"cs", info:"cs", it:"cs",
+    chemistry:"chemistry", chem:"chemistry",
+    gym:"gym", pe:"gym", sport:"gym",
+    exam:"exam"
+  };
   return m[s] || s;
 }
 
 // Значения прогресса по умолчанию. Добавлены новые улучшения speed и jump для прокачки героя.
-const defaultProgress = { knowledge: 10, upgrades: { tries:0, time:0, hint:0, bonus:0, speed:0, jump:0 } };
+// Добавляем блок settings для сохранения пользовательских настроек
+const defaultProgress = {
+  knowledge: 10,
+  upgrades: { tries:0, time:0, hint:0, bonus:0, speed:0, jump:0 },
+  // Настройки пользователя: режим управления (gestures или buttons) и порог свайпа
+  settings: { control: "gestures", swipeThresh: 24 }
+};
 
     function loadProgress(){
       try{
@@ -107,6 +124,12 @@ const defaultProgress = { knowledge: 10, upgrades: { tries:0, time:0, hint:0, bo
           for(const k of Object.keys(p.upgrades)){
             if(typeof raw.upgrades[k] === "number") p.upgrades[k] = raw.upgrades[k];
           }
+        }
+
+        // Загружаем пользовательские настройки, если есть
+        if(raw.settings && typeof raw.settings === "object"){
+          if(typeof raw.settings.control === "string") p.settings.control = raw.settings.control;
+          if(typeof raw.settings.swipeThresh === "number") p.settings.swipeThresh = raw.settings.swipeThresh;
         }
         
         if(raw.defeated && typeof raw.defeated === "object") p.defeated = raw.defeated;
@@ -134,6 +157,47 @@ return p;
     // Обновляем характеристики игрока в соответствии с улучшениями
     if (typeof refreshPlayerStats === "function") refreshPlayerStats();
 
+    // ===== Функции работы с настройками =====
+    // Обновляет форму настроек на экране настроек, подставляя текущие значения
+    function updateSettingsUI(){
+      try{
+        const mode = (progress.settings && progress.settings.control) || defaultProgress.settings.control;
+        const thresh = (progress.settings && typeof progress.settings.swipeThresh === 'number') ? progress.settings.swipeThresh : defaultProgress.settings.swipeThresh;
+        const radios = document.querySelectorAll('input[name="control-mode"]');
+        radios.forEach(r => { r.checked = (r.value === mode); });
+        const slider = document.getElementById('control-threshold');
+        const valEl = document.getElementById('control-threshold-val');
+        if(slider){
+          slider.value = String(thresh);
+          if(valEl) valEl.textContent = String(thresh);
+        }
+      }catch(_){}
+    }
+    // Сохраняет значения из формы настроек и применяет их к игре
+    function saveSettingsFromUI(){
+      try{
+        const checked = document.querySelector('input[name="control-mode"]:checked');
+        const mode = checked ? checked.value : defaultProgress.settings.control;
+        const slider = document.getElementById('control-threshold');
+        const val = slider ? parseInt(slider.value) : defaultProgress.settings.swipeThresh;
+        if(!progress.settings) progress.settings = {};
+        progress.settings.control = mode;
+        progress.settings.swipeThresh = val;
+        saveProgress(progress);
+        // применяем настройки к игре
+        game.controlMode = mode;
+        game.swipeThreshold = val;
+      }catch(_){}
+    }
+    // Обновление текста у ползунка чувствительности свайпа
+    const thresholdSlider = document.getElementById('control-threshold');
+    if(thresholdSlider){
+      thresholdSlider.addEventListener('input', (e) => {
+        const valEl = document.getElementById('control-threshold-val');
+        if(valEl) valEl.textContent = e.target.value;
+      });
+    }
+
     function totalUpg(){
       const u = progress.upgrades;
       return (u.tries + u.time + u.hint + u.bonus);
@@ -146,6 +210,19 @@ return p;
       if(hk) hk.textContent = String(progress.knowledge);
       if(hu) hu.textContent = String(totalUpg());
       if(sk) sk.textContent = String(progress.knowledge);
+
+      // Обновляем индикатор прогресса по предметам: сколько кабинетов пройдено
+      const pValEl = document.getElementById('hud-progress-val');
+      if(pValEl){
+        const subjects = ['math','russian','history','physics','cs','chemistry','gym'];
+        let doneCount = 0;
+        for(const s of subjects){
+          const norm = normalizeSubject(s);
+          if(progress.completedLevels && progress.completedLevels[norm]) doneCount++;
+        }
+        const pct = Math.round((doneCount / subjects.length) * 100);
+        pValEl.textContent = pct + '%';
+      }
     }
 
     // === БИБЛИОТЕКА (магазин) ===
@@ -258,6 +335,15 @@ return p;
       progress.knowledge += add;
       saveProgress(progress);
       updateHUD();
+      // Создаём визуальный эффект: всплывающая надпись с прибавкой знаний
+      try{
+        if(game && game.effects){
+          // Помещаем текст чуть выше головы героя
+          const px = game.player.x + game.player.w/2;
+          const py = game.player.y - 20;
+          game.effects.push({ x: px, y: py, text: '+' + add, ttl: 1.5 });
+        }
+      }catch(_){/* ignore if game is not ready */}
       return add;
     }
 
@@ -554,6 +640,31 @@ function pickQuestion(subject, difficulty){
       game.start();
     });
 
+    // === Настройки ===
+    // Кнопка «Настройки» в меню
+    const btnSettings = $("btn-settings");
+    if(btnSettings){
+      btnSettings.addEventListener("click", () => {
+        updateSettingsUI();
+        show("settings");
+      });
+    }
+    // Сохранить настройки и вернуться в меню
+    const btnSettingsSave = $("btn-settings-save");
+    if(btnSettingsSave){
+      btnSettingsSave.addEventListener("click", () => {
+        saveSettingsFromUI();
+        show("menu");
+      });
+    }
+    // Вернуться из настроек без сохранения
+    const btnSettingsBack = $("btn-settings-back");
+    if(btnSettingsBack){
+      btnSettingsBack.addEventListener("click", () => {
+        show("menu");
+      });
+    }
+
     $("btn-exit-to-menu").addEventListener("click", () => {
       closeShop();
       game.stop();
@@ -624,8 +735,16 @@ function pickQuestion(subject, difficulty){
       objects:[],
       platforms:[],
 
+      // Эффекты для визуального отображения (например, всплывающие очки знаний).
+      // Каждый объект: {x,y,text,ttl}. ttl — время жизни в секундах.
+      effects:[],
+
       // Время, оставшееся до конца уровня (в секундах). Когда null, таймер отключён.
       levelTime: null,
+
+      // Настройки управления: читаем из progress.settings. Если нет, используем значения по умолчанию.
+      controlMode: (typeof progress !== 'undefined' && progress.settings && progress.settings.control) || "gestures",
+      swipeThreshold: (typeof progress !== 'undefined' && progress.settings && typeof progress.settings.swipeThresh === 'number' ? progress.settings.swipeThresh : 24),
 
       start(){
         resizeCanvas();
@@ -712,6 +831,12 @@ function pickQuestion(subject, difficulty){
           // Дверь на второй этаж в кабинет информатики. Расположена на высоте второго этажа.
           {type:"door", subject:"cs", label:"Информатика", x:420, y: (this.world.groundY - 200) - 130, w:90, h:130,
             text:"Кабинет: Информатика (скоро)"},
+          // Дверь в кабинет химии на втором этаже. Открывается после информатики.
+          {type:"door", subject:"chemistry", label:"Химия", x:650, y: (this.world.groundY - 200) - 130, w:90, h:130,
+            text:"Кабинет: Химия (скоро)"},
+          // Дверь в спортзал (физкультуру) на втором этаже. Открывается после химии.
+          {type:"door", subject:"gym", label:"Физкультура", x:900, y: (this.world.groundY - 200) - 130, w:90, h:130,
+            text:"Кабинет: Физкультура (скоро)"},
           // Одноклассник на втором этаже, чтобы подсказать игроку про лифт
           {type:"npc", role:"одноклассник", name:"Тимур", x:520, y: (this.world.groundY - 200) - 60, w:46, h:60,
             text:"Информатика на втором этаже! Используй лифт, чтобы подняться.",
@@ -831,6 +956,45 @@ function pickQuestion(subject, difficulty){
             w:60,
             h:80,
             text:'Отлично! Все предметы пройдены. Ты готов к экзамену!',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // После прохождения информатики открываем химию
+        if(completed.cs){
+          const doorChem = findDoor('chemistry');
+          if(doorChem){ doorChem.text = 'Вход в кабинет: Химия'; }
+        }
+
+        // После прохождения химии открываем спортзал
+        if(completed.chemistry){
+          const doorGym = findDoor('gym');
+          if(doorGym){ doorGym.text = 'Вход в кабинет: Физкультура'; }
+          // Добавляем учителя химии, чтобы направить в спортзал
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель химии',
+            x:2400,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Поздравляю с прохождением химии! Теперь тебя ждёт спортзал.',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // После прохождения спортзала поздравляем и сообщаем об экзамене
+        if(completed.gym){
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель физкультуры',
+            x:2500,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Отлично! Физкультура пройдена. Теперь можешь смело идти на экзамен!',
             move:{axis:'x', range:40, speed:25}
           });
         }
@@ -1028,6 +1192,76 @@ function pickQuestion(subject, difficulty){
           const badge=document.querySelector(".badge");
           if(badge) badge.textContent = `Уровень: Информатика (${(DIFF[this.levelMode]||DIFF.normal).label})`;
           $("hud-tip").innerHTML = "Информатика: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
+        // Химия
+        if(levelId === "chemistry"){
+          this.world.w = 2200;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:300, y:this.world.groundY-130, w:240, h:18},
+            {x:700, y:this.world.groundY-200, w:240, h:18},
+            {x:1150, y:this.world.groundY-150, w:240, h:18},
+            {x:1600, y:this.world.groundY-210, w:240, h:18},
+            // Движущаяся горизонтальная платформа
+            {x:900, y:this.world.groundY-240, w:140, h:18, move:{axis:'x', range:150, speed:50}},
+            // Дополнительные платформы для вертикального исследования
+            {x:500, y:this.world.groundY-300, w:200, h:18},
+            {x:900, y:this.world.groundY-350, w:220, h:18},
+            {x:1400, y:this.world.groundY-320, w:200, h:18},
+            // Вертикально движущаяся платформа
+            {x:1100, y:this.world.groundY-280, w:100, h:18, move:{axis:'y', range:150, speed:50}},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"ch_s1", difficulty:"easy", role:"одноклассник", name:"Лена", x:750, y:this.world.groundY-72, w:60, h:80, subject:"chemistry", speed:65},
+            {type:"enemy", id:"ch_t1", difficulty:"hard", role:"учитель", name:"Учитель химии", x:1500, y:this.world.groundY-72, w:60, h:80, subject:"chemistry", speed:85},
+            // Коллекционные предметы для химии
+            {type:'collectible', id:'chem_c1', x:1700, y:this.world.groundY-260, w:26, h:26, value:5},
+            {type:'collectible', id:'chem_c2', x:1800, y:this.world.groundY-420, w:26, h:26, value:5},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: Химия (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "Химия: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
+        // Физкультура / Спортзал
+        if(levelId === "gym"){
+          this.world.w = 2200;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:280, y:this.world.groundY-120, w:240, h:18},
+            {x:680, y:this.world.groundY-200, w:240, h:18},
+            {x:1100, y:this.world.groundY-150, w:240, h:18},
+            {x:1500, y:this.world.groundY-220, w:240, h:18},
+            // Движущаяся горизонтальная платформа
+            {x:900, y:this.world.groundY-240, w:140, h:18, move:{axis:'x', range:160, speed:60}},
+            // Дополнительные многоуровневые платформы
+            {x:450, y:this.world.groundY-300, w:200, h:18},
+            {x:900, y:this.world.groundY-360, w:220, h:18},
+            {x:1400, y:this.world.groundY-320, w:200, h:18},
+            // Вертикально движущаяся платформа для соединения уровней
+            {x:1200, y:this.world.groundY-280, w:100, h:18, move:{axis:'y', range:180, speed:70}},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"gm_s1", difficulty:"easy", role:"одноклассник", name:"Саша", x:800, y:this.world.groundY-72, w:60, h:80, subject:"gym", speed:90},
+            {type:"enemy", id:"gm_t1", difficulty:"hard", role:"учитель", name:"Учитель физкультуры", x:1420, y:this.world.groundY-72, w:60, h:80, subject:"gym", speed:100},
+            // Коллекционные предметы для физкультуры
+            {type:'collectible', id:'gym_c1', x:1600, y:this.world.groundY-260, w:26, h:26, value:5},
+            {type:'collectible', id:'gym_c2', x:1800, y:this.world.groundY-420, w:26, h:26, value:5},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: Физкультура (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "Физкультура: двигайся и отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
         }
 
 
@@ -1309,6 +1543,18 @@ function pickQuestion(subject, difficulty){
             }
           }
         }
+
+        // Обновляем визуальные эффекты: всплывающие надписи (например +знаний)
+        if(Array.isArray(this.effects)){
+          for(let i = this.effects.length - 1; i >= 0; i--){
+            const ef = this.effects[i];
+            ef.y -= 50 * dt; // поднимаем текст вверх
+            ef.ttl -= dt;
+            if(ef.ttl <= 0){
+              this.effects.splice(i, 1);
+            }
+          }
+        }
       },
       tryInteract(modal){
         try{
@@ -1482,6 +1728,21 @@ function pickQuestion(subject, difficulty){
         }
         ctx.globalAlpha = 1;
 
+        // Рисуем всплывающие эффекты (например, +знаний)
+        if(Array.isArray(this.effects)){
+          for(const ef of this.effects){
+            const ps = this.worldToScreen(ef.x, ef.y);
+            // плавно уменьшаем прозрачность по мере окончания ttl (макс ttl ~1.5с)
+            const alpha = Math.max(0, Math.min(1, ef.ttl / 1.5));
+            ctx.globalAlpha = alpha;
+            ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "rgba(253,224,71,.92)";
+            ctx.fillText(ef.text, ps.x, ps.y);
+            ctx.globalAlpha = 1;
+          }
+        }
+
         for(const pl of this.platforms){
           this.drawRect(ctx, pl.x, pl.y, pl.w, pl.h, "rgba(255,255,255,.10)", "rgba(255,255,255,.16)");
         }
@@ -1613,10 +1874,13 @@ function pickQuestion(subject, difficulty){
       let startX = 0, startY = 0;
       let moved = false;
       let downTime = 0;
-      const THRESH = 24; // порог движения в пикселях для распознавания жеста
+      // порог движения для жестов будет обновляться динамически из game.swipeThreshold
+      let THRESH = game.swipeThreshold || 24; // стартовое значение
 
       function handleDown(e){
         if(e.pointerType && e.pointerType !== "touch") return;
+        // если выбран режим кнопок, не начинаем отслеживание жестов
+        if(game.controlMode !== "gestures") return;
         touchActive = true;
         moved = false;
         startX = e.clientX;
@@ -1625,6 +1889,10 @@ function pickQuestion(subject, difficulty){
       }
       function handleMove(e){
         if(!touchActive) return;
+        // игнорируем обработку, если выбран режим кнопок
+        if(game.controlMode !== "gestures") return;
+        // обновляем порог из текущих настроек
+        THRESH = game.swipeThreshold || 24;
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         // горизонтальное управление
@@ -1669,7 +1937,8 @@ function pickQuestion(subject, difficulty){
 
     // Дополнительное управление на мобильных устройствах через гироскоп/акселерометр.
     // Если поддерживается DeviceOrientationEvent (наклон), используем гамма (лево-право) для движения.
-    if(window.DeviceOrientationEvent){
+    // Отключаем управление наклоном устройства (гироскоп), оставляем только свайпы и кнопки
+    if(false && window.DeviceOrientationEvent){
       const ORIENT_THRESH = 10; // в градусах: чувствительность наклона
       window.addEventListener('deviceorientation', (e)=>{
         if(game.input.locked) return;

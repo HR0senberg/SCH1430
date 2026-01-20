@@ -21,7 +21,29 @@
       <button id="btn-start" class="btn btn-primary"> Начать игру</button>
         
       <button id="btn-about" class="btn"> О проекте</button>
+      <button id="btn-settings" class="btn">Настройки</button>
       <div class="hint">Управление: ← → / A D, прыжок — пробел, действие — E/У<br>На телефоне — кнопки снизу.</div>
+    </div>
+  </section>
+  <!-- ЭКРАН НАСТРОЕК -->
+  <section id="screen-settings" class="screen screen-settings hidden" aria-label="Настройки">
+    <div class="panel panel-wide">
+      <div class="panel__title">Настройки</div>
+      <div class="settings-section">
+        <h3>Управление</h3>
+        <div class="settings-row">
+          <label><input type="radio" name="control-mode" value="gestures"> Свайпы и тапы</label><br>
+          <label><input type="radio" name="control-mode" value="buttons"> Кнопки на экране</label>
+        </div>
+        <div class="settings-row">
+          <label for="control-threshold">Чувствительность свайпов: <span id="control-threshold-val">24</span>&nbsp;px</label>
+          <input type="range" id="control-threshold" min="10" max="100" step="2" value="24">
+        </div>
+      </div>
+      <div class="settings-actions">
+        <button id="btn-settings-save" class="btn btn-primary" type="button">Сохранить</button>
+        <button id="btn-settings-back" class="btn" type="button">← Назад</button>
+      </div>
     </div>
   </section>
 
@@ -55,6 +77,11 @@
       <!-- Таймер уровня -->
       <div id="hud-timer" class="hud__timer hidden" aria-hidden="true">
         ⏱ Время: <b><span id="hud-timer-val">0</span> с</b>
+      </div>
+
+      <!-- Индикатор прогресса по пройденным кабинетам -->
+      <div id="hud-progress" class="hud-progress">
+        📚 Прогресс: <b><span id="hud-progress-val">0%</span></b>
       </div>
 
       </div>

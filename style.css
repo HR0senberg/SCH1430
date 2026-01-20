@@ -184,6 +184,20 @@ body{ overflow:hidden; background:#0b1020; }
   font-size: 14px;
 }
 
+/* Индикатор прогресса: небольшой блок, который показывает процент пройденных кабинетов */
+.hud-progress{
+  background: rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.18);
+  color: rgba(255,255,255,.92);
+  padding: 8px 12px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 800;
+  display: inline-block;
+  backdrop-filter: blur(10px);
+  margin-top: 6px;
+}
+
 #game{
   width:100%;
   height:100%;
@@ -379,6 +393,31 @@ body{ overflow:hidden; background:#0b1020; }
 .quiz__opt.bad{ border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.10); }
 .quiz__actions{ display:flex; gap:10px; margin-top:12px; }
 .quiz__msg{ margin-top:10px; font-size: 13px; opacity:.85; }
+
+/* === Настройки === */
+.screen-settings .panel{
+  text-align: left;
+}
+.settings-section{
+  margin-top: 10px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.settings-section h3{
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+.settings-row{
+  margin-bottom: 12px;
+}
+.settings-row input[type="range"]{
+  width: 100%;
+}
+.settings-actions{
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+}
 
 /* === Выбор сложности === */
 .diff{
