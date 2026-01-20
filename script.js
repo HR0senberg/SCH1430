@@ -93,7 +93,8 @@ function normalizeSubject(s){
   return m[s] || s;
 }
 
-const defaultProgress = { knowledge: 10, upgrades: { tries:0, time:0, hint:0, bonus:0 } };
+// Значения прогресса по умолчанию. Добавлены новые улучшения speed и jump для прокачки героя.
+const defaultProgress = { knowledge: 10, upgrades: { tries:0, time:0, hint:0, bonus:0, speed:0, jump:0 } };
 
     function loadProgress(){
       try{
@@ -130,6 +131,8 @@ return p;
     }
 
     let progress = loadProgress();
+    // Обновляем характеристики игрока в соответствии с улучшениями
+    if (typeof refreshPlayerStats === "function") refreshPlayerStats();
 
     function totalUpg(){
       const u = progress.upgrades;
@@ -172,7 +175,15 @@ return p;
       shop.querySelectorAll("[data-buy]").forEach((btn)=>{
         btn.addEventListener("click", ()=>{
           const type = btn.getAttribute("data-buy");
-          const cost = (type === "bonus") ? 10 : 5;
+          // Стоимость улучшений: стандартные улучшения стоят 5, бонус 10, а новые улучшения speed и jump – 8
+          let cost;
+          if(type === "bonus"){
+            cost = 10;
+          } else if(type === "speed" || type === "jump"){
+            cost = 8;
+          } else {
+            cost = 5;
+          }
 
           if(progress.knowledge < cost){
             modal.open("❗ Не хватает знаний", "Нужно больше знаний. Пройди уровни и возвращайся 🙂");
@@ -183,6 +194,8 @@ return p;
           progress.upgrades[type] = (progress.upgrades[type] || 0) + 1;
           saveProgress(progress);
           updateHUD();
+          // После покупки обновляем характеристики игрока (скорость и высоту прыжка)
+          if(typeof refreshPlayerStats === "function") refreshPlayerStats();
         unlockAchievement('first_buy','Первая покупка в библиотеке! 📚');
           modal.open("✅ Куплено!", "Отлично! Улучшение сохранено и будет работать на уровнях.");
         });
@@ -198,8 +211,29 @@ return p;
         progress.upgrades = fresh.upgrades;
         saveProgress(progress);
         updateHUD();
+        // После сброса прогресса возвращаем базовые характеристики игрока
+        if(typeof refreshPlayerStats === "function") refreshPlayerStats();
       }
     });
+
+    /**
+     * Обновляет характеристики игрока (скорость и высоту прыжка) на основе купленных улучшений.
+     * Базовые значения: скорость 320 px/сек, высота прыжка 560 px/сек.
+     * Каждое улучшение "speed" добавляет +50 к скорости, каждое улучшение "jump" добавляет +80 к прыжку.
+     */
+    function refreshPlayerStats(){
+      try{
+        const baseSpeed = 320;
+        const baseJump = 560;
+        const u = progress && progress.upgrades ? progress.upgrades : {};
+        const speedBonus = (u.speed || 0) * 50;
+        const jumpBonus = (u.jump || 0) * 80;
+        if(game && game.player){
+          game.player.speed = baseSpeed + speedBonus;
+          game.player.jumpV = baseJump + jumpBonus;
+        }
+      }catch(_){/* nothing */}
+    }
 
         
     // === УРОВНИ (Этап 5) ===
@@ -633,34 +667,173 @@ function pickQuestion(subject, difficulty){
           {x:2050, y:this.world.groundY-90, w:160, h:18},
         ];
 
-        // NPC/двери/библиотека
+        // === Дополнительный этаж и лифт ===
+        // Организуем второй уровень хаба: второй этаж располагается выше на 200 пикселей. На нём будут новые кабинеты.
+        const secondFloorY = this.world.groundY - 200;
+        // Длинная платформа второго этажа по всей ширине мира
+        this.platforms.push({ x: 0, y: secondFloorY, w: this.world.w, h: 18 });
+        // Лифт — движущаяся платформа, которая поднимает игрока на второй этаж. Начинается у земли и движется вверх/вниз на 200px.
+        this.platforms.push({ x: 200, y: this.world.groundY - 18, w: 60, h: 18, move:{ axis:'y', range: 200, speed: 50 } });
+
+        // NPC/двери/библиотека.
+        // Каждому npc в коридоре добавляем параметр move, чтобы они ходили туда-сюда и коридор выглядел живым.
         this.objects = [
           {type:"library", x:300, y:this.world.groundY-150, w:120, h:150,
             text:"Это библиотека! Тут можно покупать улучшения 🙂"},
           {type:"npc", role:"одноклассник", name:"Маша", x:520, y:this.world.groundY-60, w:46, h:60,
-            text:"Привет! Пойдём в математику? Там будут вопросы попроще."},
+            text:"Привет! Пойдём в математику? Там будут вопросы попроще.",
+            move:{axis:'x', range:40, speed:30}},
 
           // Дверь в Математику — уже работает как уровень
           {type:"door", subject:"math", label:"Математика", x:650, y:this.world.groundY-130, w:90, h:130,
             text:"Вход в кабинет: Математика"},
 
           {type:"npc", role:"одноклассник", name:"Илья", x:980, y:this.world.groundY-60, w:46, h:60,
-            text:"Если сомневаешься — выбирай самый логичный ответ 🙂"},
+            text:"Если сомневаешься — выбирай самый логичный ответ 🙂",
+            move:{axis:'x', range:60, speed:40}},
 
-          // Остальные двери пока «скоро»
+          // Остальные двери пока «скоро», тексты будут обновлены в зависимости от прогресса
           {type:"door", subject:"rus", label:"Русский язык", x:1120, y:this.world.groundY-130, w:90, h:130,
             text:"Кабинет: Русский язык (скоро)"},
           {type:"npc", role:"учитель", name:"Екатерина Эдуардовна", x:1580, y:this.world.groundY-60, w:54, h:72,
-            text:"Вопросы посложнее — но ты справишься!"},
+            text:"Вопросы посложнее — но ты справишься!",
+            move:{axis:'x', range:30, speed:25}},
           {type:"door", subject:"exam", label:"Экзамен", x:1720, y:this.world.groundY-130, w:90, h:130,
             text:"ФИНАЛ: Экзамен (мини-боссы и директор)"},
           {type:"door", subject:"history", label:"История", x:1860, y:this.world.groundY-130, w:90, h:130,
             text:"Кабинет: История (скоро)"},
           {type:"npc", role:"учитель", name:"Учитель информатики", x:2400, y:this.world.groundY-60, w:54, h:72,
-            text:"Информатика — это про логику и аккуратность."},
+            text:"Информатика — это про логику и аккуратность.",
+            move:{axis:'x', range:50, speed:35}},
           {type:"door", subject:"physics", label:"Физика", x:2660, y:this.world.groundY-130, w:90, h:130,
             text:"Кабинет: Физика (скоро)"},
+
+          // ==== Второй этаж: двери и NPC ====
+          // Дверь на второй этаж в кабинет информатики. Расположена на высоте второго этажа.
+          {type:"door", subject:"cs", label:"Информатика", x:420, y: (this.world.groundY - 200) - 130, w:90, h:130,
+            text:"Кабинет: Информатика (скоро)"},
+          // Одноклассник на втором этаже, чтобы подсказать игроку про лифт
+          {type:"npc", role:"одноклассник", name:"Тимур", x:520, y: (this.world.groundY - 200) - 60, w:46, h:60,
+            text:"Информатика на втором этаже! Используй лифт, чтобы подняться.",
+            move:{axis:'x', range:40, speed:30}},
         ];
+
+        // Динамические изменения хаба на основе пройденных уровней.
+        // Если игрок прошёл определённый уровень, обновляем тексты дверей, диалогов, и добавляем новых NPC.
+        const completed = progress && progress.completedLevels ? progress.completedLevels : {};
+
+        // Функция для поиска двери по предмету
+        const findDoor = (subj) => {
+          return this.objects.find(o => o.type === 'door' && normalizeSubject(o.subject) === normalizeSubject(subj));
+        };
+
+        // Обновляем реплики у Маши в зависимости от прогресса
+        for(const obj of this.objects){
+          if(obj.type === 'npc' && obj.name === 'Маша'){
+            if(completed.math && !completed.russian){
+              obj.text = "Привет! Математика пройдена 🎉 Давай попробуем русский?";
+            } else if(completed.math && completed.russian){
+              obj.text = "Ты уже прошёл математику и русский! Следующая остановка — история!";
+            }
+          }
+          // Обновляем реплику у Ильи, чтобы он подбадривал игрока
+          if(obj.type === 'npc' && obj.name === 'Илья'){
+            if(Object.keys(completed).length > 0){
+              obj.text = "Отлично! Твои знания растут. Не сдавайся и проходи новые кабинеты!";
+            }
+          }
+          // Учитель информатики – поздравления после прохождения информатики
+          if(obj.type === 'npc' && obj.name === 'Учитель информатики'){
+            if(completed.cs){
+              obj.text = "Поздравляю! Ты покорил информатику. Готов к экзамену?";
+            }
+          }
+        }
+
+        // Математика завершена — открываем русский и добавляем учителя математики
+        if(completed.math){
+          const doorRus = findDoor('rus');
+          if(doorRus){ doorRus.text = "Вход в кабинет: Русский язык"; }
+          // добавляем учителя математики в коридор
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель математики',
+            x:1400,
+            y:this.world.groundY-72,
+            w:54,
+            h:72,
+            text:'Молодец! Ты справился с математикой. Теперь попробуй русский язык!',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // Русский завершён — открываем историю и добавляем учителя русского
+        if(completed.russian){
+          const doorHist = findDoor('history');
+          if(doorHist){ doorHist.text = "Вход в кабинет: История"; }
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель русского',
+            x:1600,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Отличная работа по русскому! История ждёт тебя.',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // История завершена — открываем физику и добавляем учителя истории
+        if(completed.history){
+          const doorPhys = findDoor('physics');
+          if(doorPhys){ doorPhys.text = "Вход в кабинет: Физика"; }
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель истории',
+            x:1800,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Здорово! История пройдена. Следующая — физика.',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // Физика завершена — открываем информатику и добавляем учителя физики
+        if(completed.physics){
+          // Открываем дверь на второй этаж в кабинет информатики
+          const doorCS = findDoor('cs');
+          if(doorCS){ doorCS.text = "Вход в кабинет: Информатика"; }
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель физики',
+            x:2000,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Поздравляю с прохождением физики! Теперь попробуй свои силы в информатике.',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // Информатика завершена — поздравляем и готовим к экзамену
+        if(completed.cs){
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Директор',
+            x:2200,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Отлично! Все предметы пройдены. Ты готов к экзамену!',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
 
         const p = this.player;
         p.x = 120;
@@ -797,6 +970,12 @@ function pickQuestion(subject, difficulty){
             {x:1560, y:this.world.groundY-230, w:260, h:18},
             // Движущаяся платформа для физики
             {x:900, y:this.world.groundY-220, w:140, h:18, move:{axis:'x', range:160, speed:50}},
+            // Дополнительные платформы для вертикального исследования
+            {x:500, y:this.world.groundY-320, w:200, h:18},
+            {x:900, y:this.world.groundY-380, w:220, h:18},
+            {x:1300, y:this.world.groundY-340, w:200, h:18},
+            // Вертикально движущаяся платформа, соединяющая уровни
+            {x:700, y:this.world.groundY-260, w:100, h:18, move:{axis:'y', range:160, speed:60}},
           ];
           this.objects = [
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
@@ -804,6 +983,8 @@ function pickQuestion(subject, difficulty){
             {type:"enemy", id:"ph_t1", difficulty:"hard", role:"учитель", name:"Учитель физики", x:1420, y:this.world.groundY-72, w:60, h:80, subject:"physics", speed:80},
             // Коллекционный предмет для физики
             {type:'collectible', id:'physics_c1', x:1500, y:this.world.groundY-260, w:26, h:26, value:5},
+            // Дополнительный коллекционный предмет, спрятанный на верхнем уровне
+            {type:'collectible', id:'physics_c2', x:1700, y:this.world.groundY-420, w:26, h:26, value:5},
           ];
           const p=this.player;
           p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
@@ -825,6 +1006,12 @@ function pickQuestion(subject, difficulty){
             {x:1680, y:this.world.groundY-220, w:260, h:18},
             // Движущаяся вертикальная платформа для информатики
             {x:900, y:this.world.groundY-220, w:140, h:18, move:{axis:'y', range:100, speed:40}},
+            // Дополнительные платформы для многоуровневого прохождения
+            {x:480, y:this.world.groundY-300, w:200, h:18},
+            {x:1000, y:this.world.groundY-360, w:220, h:18},
+            {x:1500, y:this.world.groundY-320, w:200, h:18},
+            // Вертикально движущаяся платформа, соединяющая уровни
+            {x:1400, y:this.world.groundY-260, w:100, h:18, move:{axis:'y', range:180, speed:60}},
           ];
           this.objects = [
             {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
@@ -832,6 +1019,8 @@ function pickQuestion(subject, difficulty){
             {type:"enemy", id:"cs_t1", difficulty:"hard", role:"учитель", name:"Учитель информатики", x:1500, y:this.world.groundY-72, w:60, h:80, subject:"cs", speed:70},
             // Коллекционный предмет для информатики
             {type:'collectible', id:'cs_c1', x:1700, y:this.world.groundY-260, w:26, h:26, value:5},
+            // Дополнительный коллекционный предмет, спрятанный на верхнем уровне
+            {type:'collectible', id:'cs_c2', x:1800, y:this.world.groundY-420, w:26, h:26, value:5},
           ];
           const p=this.player;
           p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
@@ -951,6 +1140,42 @@ function pickQuestion(subject, difficulty){
               if(pl.y > pl.startY + m.range){
                 pl.y = pl.startY + m.range;
                 pl.dir = -1;
+              }
+            }
+          }
+        }
+
+        // Движение NPC в хабе: если у NPC задано поле move, он ходит туда-сюда
+        if(this.mode === 'hub' && Array.isArray(this.objects)){
+          for(const o of this.objects){
+            if(o && o.type === 'npc' && o.move){
+              if(o.startX === undefined){
+                o.startX = o.x;
+                o.startY = o.y;
+                o.dir = o.dir || 1;
+              }
+              const m = o.move;
+              // движение по указанной оси
+              if(m.axis === 'x'){
+                o.x += m.speed * dt * o.dir;
+                if(o.x < o.startX - m.range){
+                  o.x = o.startX - m.range;
+                  o.dir = 1;
+                }
+                if(o.x > o.startX + m.range){
+                  o.x = o.startX + m.range;
+                  o.dir = -1;
+                }
+              } else if(m.axis === 'y'){
+                o.y += m.speed * dt * o.dir;
+                if(o.y < o.startY - m.range){
+                  o.y = o.startY - m.range;
+                  o.dir = 1;
+                }
+                if(o.y > o.startY + m.range){
+                  o.y = o.startY + m.range;
+                  o.dir = -1;
+                }
               }
             }
           }
@@ -1273,9 +1498,15 @@ function pickQuestion(subject, difficulty){
             this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(253,224,71,.65)", "rgba(255,255,255,.25)");
             this.drawLabel(ctx, o.x + o.w/2, o.y - 10, "⭐");
           } else if(o.type === "door"){
+            // Draw the door body
             this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(31,111,235,.25)", "rgba(255,255,255,.22)");
+            // Inner panel
             this.drawRect(ctx, o.x+16, o.y+18, o.w-32, 30, "rgba(255,255,255,.16)", "rgba(255,255,255,.18)");
-            this.drawLabel(ctx, o.x+o.w/2, o.y-10, `🚪 ${o.subject}`);
+            // Use a human‑readable label if available; fallback to subject; avoid printing 'undefined'
+            const doorLabel = (o.label && o.label.trim()) || (o.subject && o.subject.trim()) || "";
+            if(doorLabel){
+              this.drawLabel(ctx, o.x+o.w/2, o.y-10, `🚪 ${doorLabel}`);
+            }
           } else if(o.type === "library"){
             this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(16,185,129,.22)", "rgba(255,255,255,.22)");
             for(let i=0;i<4;i++){
@@ -1285,12 +1516,18 @@ function pickQuestion(subject, difficulty){
           } else {
             this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.16)", "rgba(255,255,255,.20)");
             this.drawRect(ctx, o.x+8, o.y-18, o.w-16, 18, "rgba(255,255,255,.14)", "rgba(255,255,255,.20)");
-            this.drawLabel(ctx, o.x+o.w/2, o.y-28, `${o.name}`);
+            // Prefer name; if missing, fallback to label; skip drawing if neither exists to avoid 'undefined'
+            const objLabel = (o.name && String(o.name).trim()) || (o.label && String(o.label).trim()) || "";
+            if(objLabel){
+              this.drawLabel(ctx, o.x+o.w/2, o.y-28, `${objLabel}`);
+            }
             const p = this.worldToScreen(o.x+o.w/2, o.y+o.h+18);
             ctx.font = "800 12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
             ctx.textAlign = "center";
             ctx.fillStyle = "rgba(255,255,255,.70)";
-            ctx.fillText(o.role, p.x, p.y);
+            if(o.role){
+              ctx.fillText(o.role, p.x, p.y);
+            }
           }
         }
 
