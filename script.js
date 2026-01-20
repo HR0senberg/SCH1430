@@ -99,6 +99,9 @@ function normalizeSubject(s){
     cs:"cs", inf:"cs", info:"cs", it:"cs",
     chemistry:"chemistry", chem:"chemistry",
     gym:"gym", pe:"gym", sport:"gym",
+    // Новые предметы: биология и география
+    biology:"biology", bio:"biology",
+    geography:"geography", geo:"geography",
     exam:"exam"
   };
   return m[s] || s;
@@ -214,7 +217,7 @@ return p;
       // Обновляем индикатор прогресса по предметам: сколько кабинетов пройдено
       const pValEl = document.getElementById('hud-progress-val');
       if(pValEl){
-        const subjects = ['math','russian','history','physics','cs','chemistry','gym'];
+        const subjects = ['math','russian','history','physics','cs','chemistry','gym','biology','geography'];
         let doneCount = 0;
         for(const s of subjects){
           const norm = normalizeSubject(s);
@@ -811,6 +814,14 @@ function pickQuestion(subject, difficulty){
             text:"Если сомневаешься — выбирай самый логичный ответ 🙂",
             move:{axis:'x', range:60, speed:40}},
 
+          // Дополнительные одноклассники в коридоре для оживления хаба
+          {type:"npc", role:"одноклассник", name:"Кирилл", x:380, y:this.world.groundY-60, w:46, h:60,
+            text:"Я обожаю биологию! Когда откроется кабинет, обязательно попробуй пройти.",
+            move:{axis:'x', range:50, speed:20}},
+          {type:"npc", role:"одноклассник", name:"Света", x:720, y:this.world.groundY-60, w:46, h:60,
+            text:"Потом загляни в кабинет географии — там очень интересно!",
+            move:{axis:'x', range:40, speed:25}},
+
           // Остальные двери пока «скоро», тексты будут обновлены в зависимости от прогресса
           {type:"door", subject:"rus", label:"Русский язык", x:1120, y:this.world.groundY-130, w:90, h:130,
             text:"Кабинет: Русский язык (скоро)"},
@@ -840,6 +851,16 @@ function pickQuestion(subject, difficulty){
           // Одноклассник на втором этаже, чтобы подсказать игроку про лифт
           {type:"npc", role:"одноклассник", name:"Тимур", x:520, y: (this.world.groundY - 200) - 60, w:46, h:60,
             text:"Информатика на втором этаже! Используй лифт, чтобы подняться.",
+            move:{axis:'x', range:40, speed:30}},
+
+          // Новые кабинеты на втором этаже (этап расширения)
+          {type:"door", subject:"biology", label:"Биология", x:1150, y:(this.world.groundY - 200) - 130, w:90, h:130,
+            text:"Кабинет: Биология (скоро)"},
+          {type:"door", subject:"geography", label:"География", x:1400, y:(this.world.groundY - 200) - 130, w:90, h:130,
+            text:"Кабинет: География (скоро)"},
+          // Ещё один одноклассник на втором этаже, рассказывает о новых кабинетах
+          {type:"npc", role:"одноклассник", name:"Лиза", x:1050, y:(this.world.groundY - 200) - 60, w:46, h:60,
+            text:"Привет! На втором этаже появились новые кабинеты: биология и география. Пройди их по порядку!",
             move:{axis:'x', range:40, speed:30}},
         ];
 
@@ -984,8 +1005,12 @@ function pickQuestion(subject, difficulty){
           });
         }
 
-        // После прохождения спортзала поздравляем и сообщаем об экзамене
+        // После прохождения спортзала открываем биологию и поздравляем
         if(completed.gym){
+          // Обновляем дверь Биологии
+          const doorBio = findDoor('biology');
+          if(doorBio){ doorBio.text = 'Вход в кабинет: Биология'; }
+          // Поздравление от учителя физкультуры и подсказка идти в биологию
           this.objects.push({
             type:'npc',
             role:'учитель',
@@ -994,7 +1019,40 @@ function pickQuestion(subject, difficulty){
             y:this.world.groundY-72,
             w:60,
             h:80,
-            text:'Отлично! Физкультура пройдена. Теперь можешь смело идти на экзамен!',
+            text:'Физкультура пройдена! Теперь тебя ждёт Биология на втором этаже.',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // После прохождения биологии открываем географию
+        if(completed.biology){
+          const doorGeo = findDoor('geography');
+          if(doorGeo){ doorGeo.text = 'Вход в кабинет: География'; }
+          // Учитель биологии направляет к географии
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель биологии',
+            x:2700,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Отлично! Биология позади. Следующий кабинет — География.',
+            move:{axis:'x', range:40, speed:25}
+          });
+        }
+
+        // После прохождения географии добавляем учителя географии с финальными пожеланиями
+        if(completed.geography){
+          this.objects.push({
+            type:'npc',
+            role:'учитель',
+            name:'Учитель географии',
+            x:2900,
+            y:this.world.groundY-72,
+            w:60,
+            h:80,
+            text:'Молодец! География пройдена. Ты готов к экзамену!',
             move:{axis:'x', range:40, speed:25}
           });
         }
@@ -1264,6 +1322,74 @@ function pickQuestion(subject, difficulty){
           $("hud-tip").innerHTML = "Физкультура: двигайся и отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
         }
 
+        // Биология
+        if(levelId === "biology"){
+          this.world.w = 2200;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:320, y:this.world.groundY-130, w:240, h:18},
+            {x:760, y:this.world.groundY-200, w:240, h:18},
+            {x:1180, y:this.world.groundY-150, w:240, h:18},
+            {x:1600, y:this.world.groundY-210, w:240, h:18},
+            // Движущаяся горизонтальная платформа
+            {x:900, y:this.world.groundY-240, w:140, h:18, move:{axis:'x', range:150, speed:55}},
+            // Дополнительные платформы для вертикального исследования
+            {x:500, y:this.world.groundY-300, w:200, h:18},
+            {x:900, y:this.world.groundY-350, w:220, h:18},
+            {x:1400, y:this.world.groundY-320, w:200, h:18},
+            // Вертикально движущаяся платформа, соединяющая уровни
+            {x:1100, y:this.world.groundY-280, w:100, h:18, move:{axis:'y', range:150, speed:50}},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"bio_s1", difficulty:"easy", role:"одноклассник", name:"Олег", x:760, y:this.world.groundY-72, w:60, h:80, subject:"biology", speed:65},
+            {type:"enemy", id:"bio_t1", difficulty:"hard", role:"учитель", name:"Учитель биологии", x:1500, y:this.world.groundY-72, w:60, h:80, subject:"biology", speed:85},
+            {type:'collectible', id:'bio_c1', x:1700, y:this.world.groundY-260, w:26, h:26, value:5},
+            {type:'collectible', id:'bio_c2', x:1800, y:this.world.groundY-420, w:26, h:26, value:5},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: Биология (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "Биология: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
+        // География
+        if(levelId === "geography"){
+          this.world.w = 2200;
+          this.world.groundY = 540;
+          this.platforms = [
+            {x:0, y:this.world.groundY, w:this.world.w, h:220},
+            {x:300, y:this.world.groundY-120, w:240, h:18},
+            {x:700, y:this.world.groundY-200, w:240, h:18},
+            {x:1150, y:this.world.groundY-150, w:240, h:18},
+            {x:1600, y:this.world.groundY-220, w:240, h:18},
+            // Движущаяся горизонтальная платформа
+            {x:900, y:this.world.groundY-230, w:140, h:18, move:{axis:'x', range:170, speed:60}},
+            // Дополнительные многоуровневые платформы
+            {x:450, y:this.world.groundY-300, w:200, h:18},
+            {x:900, y:this.world.groundY-360, w:220, h:18},
+            {x:1400, y:this.world.groundY-320, w:200, h:18},
+            // Вертикально движущаяся платформа для соединения уровней
+            {x:1200, y:this.world.groundY-280, w:100, h:18, move:{axis:'y', range:190, speed:70}},
+          ];
+          this.objects = [
+            {type:"exit", x:80, y:this.world.groundY-130, w:90, h:130, label:"Выход", text:"Вернуться в коридор"},
+            {type:"enemy", id:"geo_s1", difficulty:"easy", role:"одноклассник", name:"Пётр", x:800, y:this.world.groundY-72, w:60, h:80, subject:"geography", speed:70},
+            {type:"enemy", id:"geo_t1", difficulty:"hard", role:"учитель", name:"Учитель географии", x:1420, y:this.world.groundY-72, w:60, h:80, subject:"geography", speed:90},
+            {type:'collectible', id:'geo_c1', x:1600, y:this.world.groundY-260, w:26, h:26, value:5},
+            {type:'collectible', id:'geo_c2', x:1800, y:this.world.groundY-420, w:26, h:26, value:5},
+          ];
+          const p=this.player;
+          p.x=140; p.y=this.world.groundY-p.h; p.vx=p.vy=0; p.onGround=false;
+          this.camera.x=0;
+          const badge=document.querySelector(".badge");
+          if(badge) badge.textContent = `Уровень: География (${(DIFF[this.levelMode]||DIFF.normal).label})`;
+          $("hud-tip").innerHTML = "География: отвечай на вопросы 🙂 Победи всех врагов и выйди через «Выход».";
+        }
+
 
         // Экзамен: финальный уровень
         if(levelId === "exam"){
@@ -1424,7 +1550,18 @@ function pickQuestion(subject, difficulty){
         for(const pl of this.platforms){
           const pr = {x:p.x, y:p.y, w:p.w, h:p.h};
           if(rectsOverlap(pr, pl)){
-            if(p.vy > 0 && (p.y + p.h - p.vy*dt) <= pl.y + 6){
+            /*
+             * Корректируем детекцию приземления, чтобы игрок мог прыгать даже когда его вертикальная
+             * скорость равна 0. Изначальная проверка требовала, чтобы p.vy > 0 и предыдущее
+             * положение было выше на несколько пикселей. Это приводило к тому, что в редких
+             * ситуациях (например, при низком fps или после остановки на платформе) p.onGround
+             * оставалось ложным и персонаж не мог прыгнуть. Теперь мы также считаем игрока
+             * приземлённым, если его низ находится на уровне поверхности платформы с небольшим
+             * допуском (6px) и вертикальная скорость неотрицательная.
+             */
+            const wasFalling = (p.vy > 0 && (p.y + p.h - p.vy*dt) <= pl.y + 6);
+            const isAtSurface = (p.vy === 0 && (p.y + p.h) <= pl.y + 6);
+            if(wasFalling || isAtSurface){
               p.y = pl.y - p.h;
               p.vy = 0;
               p.onGround = true;
