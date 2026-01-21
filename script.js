@@ -730,21 +730,69 @@ function pickQuestion(subject, difficulty){
     const DPR = () => Math.max(1, Math.min(2, window.devicePixelRatio || 1));
 
     // --- ассеты (спрайты) ---
-    const ASSETS = {
-      playerSheet: {
-        img: new Image(),
-        loaded: false,
-        tileW: 72,
-        tileH: 72,
-        frames: { idle:[0,1], walk:[2,3,4,5], jump:6, fall:7 }
-      }
-    };
-    ASSETS.playerSheet.img.onload = () => { ASSETS.playerSheet.loaded = true; };
-    ASSETS.playerSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет игрока', e); };
-    ASSETS.playerSheet.img.src = 'assets/player_sheet.png';
+const ASSETS = {
+  playerSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 72,
+    tileH: 72,
+    frames: { idle:[0,1], walk:[2,3,4,5], jump:6, fall:7 }
+  },
+  // Библиотека — один файл (статичный). Свечение рисуем кодом при подходе игрока.
+  librarySheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 240,
+    tileH: 300
+  },
+    // Одноклассники (NPC) — один файл-спрайтлист (ОДИН PNG).
+  // Внутри: 8 вариантов (строки) × 6 кадров (столбцы: idle1, idle2, walk1..walk4).
+  // Анимация движения — при ходьбе NPC; при приближении игрока — только свечение.
+  classmateSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 72,
+    tileH: 96,
+    rows: 8,
+    cols: 6,
+    frames: { idle:[0,1], walk:[2,3,4,5] }
+  },
+// Двери кабинетов — один файл-спрайтлист с вариантами по предметам (тоже один ассет).
+  doorSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 256,
+    tileH: 370,
+    map: { math:0, russian:1, history:2, physics:3, cs:4, chemistry:5, gym:6, biology:7, geography:8, exam:9 },
+    glow: {
+      math:"rgba(96,165,250,0.90)",
+      russian:"rgba(244,114,182,0.90)",
+      history:"rgba(251,191,36,0.90)",
+      physics:"rgba(52,211,153,0.90)",
+      cs:"rgba(167,139,250,0.90)",
+      chemistry:"rgba(34,197,94,0.90)",
+      gym:"rgba(251,113,133,0.90)",
+      biology:"rgba(74,222,128,0.90)",
+      geography:"rgba(56,189,248,0.90)",
+      exam:"rgba(253,224,71,0.92)"
+    }
+  }
+};
+ASSETS.playerSheet.img.onload = () => { ASSETS.playerSheet.loaded = true; };
+ASSETS.playerSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет игрока', e); };
+ASSETS.playerSheet.img.src = 'assets/player_sheet.png';
 
+ASSETS.librarySheet.img.onload = () => { ASSETS.librarySheet.loaded = true; };
+ASSETS.librarySheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет библиотеки', e); };
+ASSETS.librarySheet.img.src = 'assets/library_sheet.png';
+ASSETS.classmateSheet.img.onload = () => { ASSETS.classmateSheet.loaded = true; };
+ASSETS.classmateSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет одноклассников', e); };
+ASSETS.classmateSheet.img.src = 'assets/classmate_sheet.png';
 
-    function resizeCanvas(){
+ASSETS.doorSheet.img.onload = () => { ASSETS.doorSheet.loaded = true; };
+ASSETS.doorSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет дверей', e); };
+ASSETS.doorSheet.img.src = 'assets/door_sheet.png';
+function resizeCanvas(){
       const dpr = DPR();
       const rect = canvas.getBoundingClientRect();
       canvas.width = Math.floor(rect.width * dpr);
@@ -1611,6 +1659,35 @@ function pickQuestion(subject, difficulty){
           }
         }
 
+
+        // --- NPC_ANIM (одноклассники): анимация ходьбы из одного спрайт-листа ---
+        // Двигаются — проигрывают walk1..walk4, стоят — idle1/idle2. При подходе игрока — свечение (в render()).
+        if(Array.isArray(this.objects) && typeof ASSETS !== 'undefined' && ASSETS.classmateSheet){
+          const sheet = ASSETS.classmateSheet;
+          const idleFrames = (sheet.frames && sheet.frames.idle) ? sheet.frames.idle : [0,1];
+          const walkFrames = (sheet.frames && sheet.frames.walk) ? sheet.frames.walk : [2,3,4,5];
+          for(const o of this.objects){
+            if(o && o.type === 'npc' && o.role === 'одноклассник'){
+              const spd = (o.move && typeof o.move.speed === 'number') ? o.move.speed : 0;
+              const moving = !!o.move && Math.abs(spd) > 1;
+              const state = moving ? 'walk' : 'idle';
+
+              if(o.animState !== state){
+                o.animState = state;
+                o.animT = 0;
+              } else {
+                o.animT = (o.animT || 0) + dt;
+              }
+
+              const frames = moving ? walkFrames : idleFrames;
+              const speedNorm = moving ? Math.min(2.0, Math.abs(spd) / 35) : 1.0;
+              const fps = moving ? (7 + speedNorm * 6) : 1.2; // walk ~7..19fps, idle ~1.2fps
+              const idx = Math.floor((o.animT || 0) * fps) % frames.length;
+              o.animFrame = frames[idx] | 0;
+            }
+          }
+        }
+
         p.vy += 1400 * dt;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
@@ -1982,6 +2059,8 @@ function pickQuestion(subject, difficulty){
             const tw = sheet.tileW, th = sheet.tileH;
             const frame = (p.animFrame ?? 0);
             const sx = frame * tw;
+            // Игрок в спрайт-листе лежит в одной строке
+            const sy = 0;
 
             // Рисуем чуть больше коллизии, чтобы персонаж был «красивее», но хитбокс остался прежним
             const dw = p.w * 1.55;
@@ -1993,9 +2072,9 @@ function pickQuestion(subject, difficulty){
             if(p.face === -1){
               ctx.translate(dx + dw, dy);
               ctx.scale(-1, 1);
-              ctx.drawImage(sheet.img, sx, 0, tw, th, 0, 0, dw, dh);
+              ctx.drawImage(sheet.img, sx, sy, tw, th, 0, 0, dw, dh);
             } else {
-              ctx.drawImage(sheet.img, sx, 0, tw, th, dx, dy, dw, dh);
+              ctx.drawImage(sheet.img, sx, sy, tw, th, dx, dy, dw, dh);
             }
             ctx.restore();
             return;
@@ -2063,24 +2142,157 @@ function pickQuestion(subject, difficulty){
             this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(253,224,71,.65)", "rgba(255,255,255,.25)");
             this.drawLabel(ctx, o.x + o.w/2, o.y - 10, "⭐");
           } else if(o.type === "door"){
-            // Draw the door body
-            this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(31,111,235,.25)", "rgba(255,255,255,.22)");
-            // Inner panel
-            this.drawRect(ctx, o.x+16, o.y+18, o.w-32, 30, "rgba(255,255,255,.16)", "rgba(255,255,255,.18)");
-            // Use a human‑readable label if available; fallback to subject; avoid printing 'undefined'
+            // Дверь кабинета (ассет одним файлом; разные предметы — разные кадры)
+            let drew = false;
+            try{
+              if(typeof ASSETS !== 'undefined' && ASSETS.doorSheet && ASSETS.doorSheet.loaded){
+                const sheet = ASSETS.doorSheet;
+                const tw = sheet.tileW, th = sheet.tileH;
+                const ps = this.worldToScreen(o.x, o.y);
+
+                const sub = (typeof normalizeSubject === "function") ? normalizeSubject(o.subject || "") : (o.subject || "");
+                const frameIdx = (sheet.map && sheet.map[sub] != null) ? sheet.map[sub] : 0;
+                const sx = frameIdx * tw;
+                // Двери в спрайт-листе лежат в одной строке
+                const sy = 0;
+
+                const p = this.player;
+                const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 160) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 190);
+
+                if(near){
+                  ctx.save();
+                  ctx.shadowColor = (sheet.glow && sheet.glow[sub]) ? sheet.glow[sub] : "rgba(255,255,255,0.85)";
+                  ctx.shadowBlur = 26;
+                  ctx.shadowOffsetX = 0;
+                  ctx.shadowOffsetY = 0;
+                  ctx.drawImage(sheet.img, sx, sy, tw, th, ps.x, ps.y, o.w, o.h);
+                  ctx.restore();
+                } else {
+                  ctx.drawImage(sheet.img, sx, sy, tw, th, ps.x, ps.y, o.w, o.h);
+                }
+
+                drew = true;
+              }
+            }catch(e){
+              // тихий фолбэк
+            }
+
+            if(!drew){
+              // fallback
+              this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(31,111,235,.25)", "rgba(255,255,255,.22)");
+              this.drawRect(ctx, o.x+16, o.y+18, o.w-32, 30, "rgba(255,255,255,.16)", "rgba(255,255,255,.18)");
+            }
+
+            // Подпись над дверью
             const doorLabel = (o.label && o.label.trim()) || (o.subject && o.subject.trim()) || "";
             if(doorLabel){
               this.drawLabel(ctx, o.x+o.w/2, o.y-10, `🚪 ${doorLabel}`);
             }
           } else if(o.type === "library"){
-            this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(16,185,129,.22)", "rgba(255,255,255,.22)");
-            for(let i=0;i<4;i++){
-              this.drawRect(ctx, o.x+10, o.y+18+i*28, o.w-20, 6, "rgba(255,255,255,.18)", null);
+  // Библиотека (ассет одним файлом). Анимация — только свечение, когда игрок рядом.
+  let drew = false;
+  try{
+    if(typeof ASSETS !== 'undefined' && ASSETS.librarySheet && ASSETS.librarySheet.loaded){
+      const sheet = ASSETS.librarySheet;
+      const tw = sheet.tileW, th = sheet.tileH;
+      const ps = this.worldToScreen(o.x, o.y);
+
+      const p = this.player;
+      const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 180) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 180);
+
+      if(near){
+        ctx.save();
+        ctx.shadowColor = "rgba(253,224,71,0.90)";
+        ctx.shadowBlur = 28;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.drawImage(sheet.img, 0, 0, tw, th, ps.x, ps.y, o.w, o.h);
+        ctx.restore();
+      } else {
+        ctx.drawImage(sheet.img, 0, 0, tw, th, ps.x, ps.y, o.w, o.h);
+      }
+      drew = true;
+    }
+  }catch(e){
+    // тихий фолбэк
+  }
+
+  if(!drew){
+    // fallback (если ассет не загрузился)
+    this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(16,185,129,.22)", "rgba(255,255,255,.22)");
+    for(let i=0;i<4;i++){
+      this.drawRect(ctx, o.x+10, o.y+18+i*28, o.w-20, 6, "rgba(255,255,255,.18)", null);
+    }
+  }
+
+  this.drawLabel(ctx, o.x+o.w/2, o.y-10, "📚 Библиотека");
+} else {
+            // NPC-одноклассники (ассет одним файлом). Анимация — только свечение рядом с игроком.
+            let drewNpc = false;
+            if(o && o.type === 'npc' && o.role === 'одноклассник'){
+              try{
+                if(typeof ASSETS !== 'undefined' && ASSETS.classmateSheet && ASSETS.classmateSheet.loaded){
+                  const sheet = ASSETS.classmateSheet;
+                  const tw = sheet.tileW, th = sheet.tileH;
+                  const ps = this.worldToScreen(o.x, o.y);
+                  const rows = sheet.rows || 8;
+                  const cols = sheet.cols || 6;
+
+                  let vi = (o.variant != null) ? (o.variant|0) : 0;
+                  if(o.variant == null){
+                    const s = String(o.name || o.label || '') + '|' + String(o.role || '');
+                    let h = 0;
+                    for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i))|0; }
+                    vi = Math.abs(h) % rows;
+                  }
+                  vi = Math.max(0, Math.min(rows-1, vi));
+
+                  // Кадр анимации: задаётся в update(); если вдруг нет — рисуем idle1
+                  let fi = (o.animFrame != null) ? (o.animFrame|0) : 0;
+                  fi = Math.max(0, Math.min(cols-1, fi));
+
+                  const sx = fi * tw;
+                  const sy = vi * th;
+
+                  const p = this.player;
+                  const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 160) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 180);
+                  const flip = (o.dir != null ? o.dir : 1) < 0;
+
+                  if(near){
+                    ctx.save();
+                    ctx.shadowColor = "rgba(96,165,250,0.92)";
+                    ctx.shadowBlur = 22;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                    if(flip){
+                      ctx.translate(ps.x + o.w, ps.y);
+                      ctx.scale(-1,1);
+                      ctx.drawImage(sheet.img, sx, sy, tw, th, 0, 0, o.w, o.h);
+                    } else {
+                      ctx.drawImage(sheet.img, sx, sy, tw, th, ps.x, ps.y, o.w, o.h);
+                    }
+                    ctx.restore();
+                  } else {
+                    if(flip){
+                      ctx.save();
+                      ctx.translate(ps.x + o.w, ps.y);
+                      ctx.scale(-1,1);
+                      ctx.drawImage(sheet.img, sx, sy, tw, th, 0, 0, o.w, o.h);
+                      ctx.restore();
+                    } else {
+                      ctx.drawImage(sheet.img, sx, sy, tw, th, ps.x, ps.y, o.w, o.h);
+                    }
+                  }
+                  drewNpc = true;
+                }
+              }catch(e){
+                // тихий фолбэк
+              }
             }
-            this.drawLabel(ctx, o.x+o.w/2, o.y-10, "📚 Библиотека");
-          } else {
-            this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.16)", "rgba(255,255,255,.20)");
-            this.drawRect(ctx, o.x+8, o.y-18, o.w-16, 18, "rgba(255,255,255,.14)", "rgba(255,255,255,.20)");
+            if(!drewNpc){
+              this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.16)", "rgba(255,255,255,.20)");
+              this.drawRect(ctx, o.x+8, o.y-18, o.w-16, 18, "rgba(255,255,255,.14)", "rgba(255,255,255,.20)");
+            }
             // Prefer name; if missing, fallback to label; skip drawing if neither exists to avoid 'undefined'
             const objLabel = (o.name && String(o.name).trim()) || (o.label && String(o.label).trim()) || "";
             if(objLabel){
