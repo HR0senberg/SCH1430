@@ -157,8 +157,7 @@ return p;
     }
 
     let progress = loadProgress();
-    // Обновляем характеристики игрока в соответствии с улучшениями
-    if (typeof refreshPlayerStats === "function") refreshPlayerStats();
+    // Характеристики игрока (speed/jump) применяются при старте игры через refreshPlayerStats()
 
     // Визуальное переключение режима управления (кнопки/жесты)
     function applyControlModeUI(mode){
@@ -213,8 +212,8 @@ return p;
     }
 
     function totalUpg(){
-      const u = progress.upgrades;
-      return (u.tries + u.time + u.hint + u.bonus);
+      const u = (progress && progress.upgrades) ? progress.upgrades : {};
+      return ((u.tries||0) + (u.time||0) + (u.hint||0) + (u.bonus||0) + (u.speed||0) + (u.jump||0));
     }
 
     function updateHUD(){
@@ -718,6 +717,8 @@ function pickQuestion(subject, difficulty){
       progress = loadProgress();
       if(!progress.achievements) progress.achievements = {};
       updateHUD();
+      // После сброса прогресса возвращаем базовые характеристики героя
+      if(typeof refreshPlayerStats === "function") refreshPlayerStats();
       $("progressModal")?.classList.add("hidden");
       modal.open("Сброс", "Прогресс сброшен. Можно начинать заново 🙂");
     });
@@ -727,6 +728,21 @@ function pickQuestion(subject, difficulty){
     const canvas = $("game");
     const ctx = canvas.getContext("2d");
     const DPR = () => Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+    // --- ассеты (спрайты) ---
+    const ASSETS = {
+      playerSheet: {
+        img: new Image(),
+        loaded: false,
+        tileW: 72,
+        tileH: 72,
+        frames: { idle:[0,1], walk:[2,3,4,5], jump:6, fall:7 }
+      }
+    };
+    ASSETS.playerSheet.img.onload = () => { ASSETS.playerSheet.loaded = true; };
+    ASSETS.playerSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет игрока', e); };
+    ASSETS.playerSheet.img.src = 'assets/player_sheet.png';
+
 
     function resizeCanvas(){
       const dpr = DPR();
@@ -760,7 +776,12 @@ function pickQuestion(subject, difficulty){
       },
       player:{ x:120, y:0, w:44, h:60, vx:0, vy:0, speed:320, jumpV:560, onGround:false, face:1,
         // Таймер «кёйот-тайма»: позволяет прыгнуть чуть позже схода с платформы
-        coyote:0
+        coyote:0,
+        // Анимация спрайта
+        animT:0,
+        animFrame:0,
+        animState:'idle',
+        renderBob:0
       },
       objects:[],
       platforms:[],
@@ -778,6 +799,8 @@ function pickQuestion(subject, difficulty){
 
       start(){
         resizeCanvas();
+        // Применяем купленные улучшения (скорость/прыжок) при каждом запуске игры
+        if(typeof refreshPlayerStats === "function") refreshPlayerStats();
         this.resetWorld();
         this.running = true;
         this.lastT = performance.now();
@@ -1631,6 +1654,41 @@ function pickQuestion(subject, difficulty){
           }
         }
 
+        // --- PLAYER_ANIM: выбор кадра из спрайт-листа (один файл) ---
+        {
+          const moving = Math.abs(p.vx) > 8;
+          let state = 'idle';
+          if(!p.onGround) state = (p.vy < 0) ? 'jump' : 'fall';
+          else if(moving) state = 'walk';
+
+          if(p.animState !== state){
+            p.animState = state;
+            p.animT = 0;
+          } else {
+            p.animT = (p.animT || 0) + dt;
+          }
+
+          if(state === 'walk'){
+            const speedNorm = Math.min(1.6, Math.abs(p.vx) / Math.max(1, p.speed));
+            const fps = 8 + speedNorm * 6; // 8..17 fps
+            const idx = Math.floor(p.animT * fps) % 4;
+            p.animFrame = 2 + idx;
+            p.renderBob = Math.sin(p.animT * fps * (Math.PI/2)) * 1.2;
+          } else if(state === 'idle'){
+            const fps = 1.2;
+            const idx = Math.floor(p.animT * fps) % 2;
+            p.animFrame = idx;
+            p.renderBob = Math.sin(p.animT * 2.0) * 0.35;
+          } else if(state === 'jump'){
+            p.animFrame = 6;
+            p.renderBob = -0.8;
+          } else {
+            p.animFrame = 7;
+            p.renderBob = 0.8;
+          }
+        }
+
+
         
         // --- ENEMY_AI: простое движение врагов (чтобы не стояли столбиками) ---
         if(this.mode === "level" && Array.isArray(this.objects)){
@@ -1904,6 +1962,56 @@ function pickQuestion(subject, difficulty){
         ctx.fillText(text, p.x, p.y);
         ctx.globalAlpha = 1;
       },
+      drawPlayer(ctx){
+        const p = this.player;
+        const ps = this.worldToScreen(p.x, p.y);
+
+        // тень под ногами
+        ctx.save();
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(ps.x + p.w/2, ps.y + p.h + 6, p.w*0.55, 6, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+
+        // если спрайт загружен — рисуем его; иначе — старый прямоугольник (фолбэк)
+        try{
+          if(typeof ASSETS !== 'undefined' && ASSETS.playerSheet && ASSETS.playerSheet.loaded){
+            const sheet = ASSETS.playerSheet;
+            const tw = sheet.tileW, th = sheet.tileH;
+            const frame = (p.animFrame ?? 0);
+            const sx = frame * tw;
+
+            // Рисуем чуть больше коллизии, чтобы персонаж был «красивее», но хитбокс остался прежним
+            const dw = p.w * 1.55;
+            const dh = p.h * 1.35;
+            const dx = ps.x + p.w/2 - dw/2;
+            const dy = ps.y + p.h - dh + (p.renderBob || 0);
+
+            ctx.save();
+            if(p.face === -1){
+              ctx.translate(dx + dw, dy);
+              ctx.scale(-1, 1);
+              ctx.drawImage(sheet.img, sx, 0, tw, th, 0, 0, dw, dh);
+            } else {
+              ctx.drawImage(sheet.img, sx, 0, tw, th, dx, dy, dw, dh);
+            }
+            ctx.restore();
+            return;
+          }
+        }catch(e){
+          // тихий фолбэк
+        }
+
+        // fallback
+        this.drawRect(ctx, p.x, p.y, p.w, p.h, 'rgba(255,255,255,.22)', 'rgba(255,255,255,.28)');
+        const eyeY = p.y + 16;
+        const eyeX = (p.face === 1) ? p.x + 28 : p.x + 12;
+        const es = this.worldToScreen(eyeX, eyeY);
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.fillRect(es.x, es.y, 6, 6);
+      },
       render(ctx, canvas){
         const rect = canvas.getBoundingClientRect();
         const W = rect.width, H = rect.height;
@@ -1988,13 +2096,7 @@ function pickQuestion(subject, difficulty){
           }
         }
 
-        const p = this.player;
-        this.drawRect(ctx, p.x, p.y, p.w, p.h, "rgba(255,255,255,.22)", "rgba(255,255,255,.28)");
-        const eyeY = p.y + 16;
-        const eyeX = (p.face === 1) ? p.x + 28 : p.x + 12;
-        const s = this.worldToScreen(eyeX, eyeY);
-        ctx.fillStyle = "rgba(255,255,255,.92)";
-        ctx.fillRect(s.x, s.y, 6, 6);
+        this.drawPlayer(ctx);
 
         // Большая надпись для атмосферы
         ctx.globalAlpha = 0.12;
