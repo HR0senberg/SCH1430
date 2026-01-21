@@ -160,6 +160,16 @@ return p;
     // Обновляем характеристики игрока в соответствии с улучшениями
     if (typeof refreshPlayerStats === "function") refreshPlayerStats();
 
+    // Визуальное переключение режима управления (кнопки/жесты)
+    function applyControlModeUI(mode){
+      try{
+        document.body.classList.toggle('touch-mode-buttons', mode === 'buttons');
+        document.body.classList.toggle('touch-mode-gestures', mode === 'gestures');
+      }catch(_){ }
+    }
+    // Применяем режим управления из сохранения сразу при загрузке
+    applyControlModeUI((progress.settings && progress.settings.control) || defaultProgress.settings.control);
+
     // ===== Функции работы с настройками =====
     // Обновляет форму настроек на экране настроек, подставляя текущие значения
     function updateSettingsUI(){
@@ -190,6 +200,7 @@ return p;
         // применяем настройки к игре
         game.controlMode = mode;
         game.swipeThreshold = val;
+        applyControlModeUI(mode);
       }catch(_){}
     }
     // Обновление текста у ползунка чувствительности свайпа
@@ -733,8 +744,24 @@ function pickQuestion(subject, difficulty){
       // используется this.world.g, которого раньше не существовало (вызывало NaN).
       world:{ w:3200, h:720, groundY:520, g:1400 },
       camera:{ x:0 },
-      input:{ left:false, right:false, jumpPressed:false, actPressed:false, locked:false },
-      player:{ x:120, y:0, w:44, h:60, vx:0, vy:0, speed:320, jumpV:560, onGround:false, face:1 },
+      input:{
+        left:false,
+        right:false,
+        // Аналоговая ось для сенсорного управления (джойстик/перетаскивание)
+        axisX:0,
+        axisXTarget:0,
+        usingAnalog:false,
+        // Сигналы действий (сбрасываются кадр за кадром)
+        jumpPressed:false,
+        actPressed:false,
+        // Буфер прыжка для отзывчивого управления
+        jumpBuffer:0,
+        locked:false
+      },
+      player:{ x:120, y:0, w:44, h:60, vx:0, vy:0, speed:320, jumpV:560, onGround:false, face:1,
+        // Таймер «кёйот-тайма»: позволяет прыгнуть чуть позже схода с платформы
+        coyote:0
+      },
       objects:[],
       platforms:[],
 
@@ -1466,15 +1493,35 @@ function pickQuestion(subject, difficulty){
           }
         }
         const p = this.player;
-        const dir = (this.input.left ? -1 : 0) + (this.input.right ? 1 : 0);
-        p.vx = dir * p.speed;
-        if(dir !== 0) p.face = dir;
+        // --- Плавное горизонтальное сенсорное управление (аналоговая ось) ---
+        let targetDir = (this.input.left ? -1 : 0) + (this.input.right ? 1 : 0);
+        if(this.input.usingAnalog){
+          targetDir = this.input.axisXTarget || 0;
+          const k = 18; // скорость сглаживания
+          this.input.axisX += (targetDir - this.input.axisX) * Math.min(1, dt * k);
+          targetDir = this.input.axisX;
+        } else {
+          // клавиатура/кнопки — мгновенно
+          this.input.axisX = targetDir;
+        }
+        p.vx = targetDir * p.speed;
+        if(Math.abs(targetDir) > 0.01) p.face = targetDir > 0 ? 1 : -1;
 
-        if(this.input.jumpPressed && p.onGround){
+        // --- Отзывчивый прыжок: coyote time + jump buffer ---
+        p.coyote = Math.max(0, (p.coyote || 0) - dt);
+        if(p.onGround) p.coyote = 0.12;
+        this.input.jumpBuffer = Math.max(0, (this.input.jumpBuffer || 0) - dt);
+        if(this.input.jumpPressed) this.input.jumpBuffer = 0.12;
+        this.input.jumpPressed = false;
+
+        if(this.input.jumpBuffer > 0 && (p.onGround || p.coyote > 0)){
           p.vy = -p.jumpV;
           p.onGround = false;
+          p.coyote = 0;
+          this.input.jumpBuffer = 0;
+          // лёгкая вибрация (если доступна)
+          try{ if(navigator.vibrate) navigator.vibrate(10); }catch(_){ }
         }
-        this.input.jumpPressed = false;
 
         // Обновляем движущиеся платформы (если есть). У каждой такой платформы должно быть поле move:{axis:'x'|'y', range, speed}
         for(const pl of this.platforms){
@@ -1569,6 +1616,18 @@ function pickQuestion(subject, difficulty){
               if(p.vx > 0) p.x = pl.x - p.w;
               if(p.vx < 0) p.x = pl.x + pl.w;
             }
+          }
+        }
+
+        // Если приземлились в этом кадре — обновим coyote-time и применим буфер прыжка
+        if(p.onGround){
+          p.coyote = 0.12;
+          if(this.input.jumpBuffer > 0){
+            p.vy = -p.jumpV;
+            p.onGround = false;
+            p.coyote = 0;
+            this.input.jumpBuffer = 0;
+            try{ if(navigator.vibrate) navigator.vibrate(10); }catch(_){ }
           }
         }
 
@@ -2002,74 +2061,163 @@ function pickQuestion(subject, difficulty){
     }
 
     // --- жесты (gesture-first) ---
-    // Для мобильных устройств добавляем управление жестами: свайпы влево/вправо для движения,
-    // свайп вверх для прыжка и короткий тап для действия. Отрабатывает только на холсте игры.
+    // Улучшенное сенсорное управление:
+    // - Мульти-тач: левый палец = движение (аналоговый "джойстик"), правый = прыжок/действие
+    // - Плавность: аналоговая ось сглаживается в update()
+    // - Отзывчивость: coyote-time + jump buffer в логике прыжка
     (function(){
       const canvasEl = $("game");
       if(!canvasEl) return;
-      let touchActive = false;
-      let startX = 0, startY = 0;
-      let moved = false;
-      let downTime = 0;
-      // порог движения для жестов будет обновляться динамически из game.swipeThreshold
-      let THRESH = game.swipeThreshold || 24; // стартовое значение
+
+      // Мы обрабатываем как touch, так и pen (стилус)
+      const isTouchLike = (e) => (!e.pointerType || e.pointerType === "touch" || e.pointerType === "pen");
+
+      // Параметры
+      const JOY_RADIUS = 80;       // радиус джойстика (px)
+      const DEADZONE = 0.18;       // мёртвая зона по оси X (0..1)
+      const TAP_MAX_MS = 220;      // максимум длительности тапа
+      const DOUBLE_TAP_MS = 280;   // окно дабл-тапа
+      const LEFT_ZONE = 0.55;      // левый сектор экрана под движение
+
+      let moveId = null;
+      let actId = null;
+
+      // Джойстик
+      let joyStartX = 0, joyStartY = 0;
+
+      // Правая рука: прыжок/действие
+      let actStartX = 0, actStartY = 0;
+      let actDownTime = 0;
+      let actMoved = false;
+      let lastTapTime = 0;
+
+      const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+
+      function setAnalogTarget(x){
+        game.input.usingAnalog = true;
+        game.input.axisXTarget = x;
+      }
+      function clearAnalog(){
+        game.input.axisXTarget = 0;
+        game.input.usingAnalog = false;
+      }
+
+      function relPos(e){
+        const r = canvasEl.getBoundingClientRect();
+        return { r, x: e.clientX - r.left, y: e.clientY - r.top };
+      }
 
       function handleDown(e){
-        if(e.pointerType && e.pointerType !== "touch") return;
-        // если выбран режим кнопок, не начинаем отслеживание жестов
+        if(!isTouchLike(e)) return;
         if(game.controlMode !== "gestures") return;
-        touchActive = true;
-        moved = false;
-        startX = e.clientX;
-        startY = e.clientY;
-        downTime = performance.now();
+        if(game.input.locked) return;
+
+        const { r, x, y } = relPos(e);
+        const leftSide = x < r.width * LEFT_ZONE;
+
+        // Левый палец — движение
+        if(leftSide && moveId === null){
+          moveId = e.pointerId;
+          joyStartX = x; joyStartY = y;
+          try{ canvasEl.setPointerCapture(e.pointerId); }catch(_){ }
+          e.preventDefault();
+          return;
+        }
+        // Правый палец — прыжок/действие
+        if(!leftSide && actId === null){
+          actId = e.pointerId;
+          actStartX = x; actStartY = y;
+          actDownTime = performance.now();
+          actMoved = false;
+          try{ canvasEl.setPointerCapture(e.pointerId); }catch(_){ }
+          e.preventDefault();
+          return;
+        }
       }
+
       function handleMove(e){
-        if(!touchActive) return;
-        // игнорируем обработку, если выбран режим кнопок
+        if(!isTouchLike(e)) return;
         if(game.controlMode !== "gestures") return;
-        // обновляем порог из текущих настроек
-        THRESH = game.swipeThreshold || 24;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        // горизонтальное управление
-        if(Math.abs(dx) > THRESH){
-          moved = true;
-          if(dx > 0){
-            game.input.left = false;
-            game.input.right = true;
-          } else {
-            game.input.right = false;
-            game.input.left = true;
+        if(game.input.locked) return;
+
+        const { x, y } = relPos(e);
+
+        // Джойстик
+        if(e.pointerId === moveId){
+          const dx = x - joyStartX;
+          const max = Math.max(30, JOY_RADIUS);
+          let ax = dx / max;
+          if(Math.abs(ax) < DEADZONE) ax = 0;
+          ax = clamp1(ax);
+          setAnalogTarget(ax);
+          e.preventDefault();
+          return;
+        }
+
+        // Правая рука: свайп вверх => прыжок
+        if(e.pointerId === actId){
+          const THRESH = game.swipeThreshold || 24;
+          const dx = x - actStartX;
+          const dy = y - actStartY;
+
+          if(Math.abs(dx) > 3 || Math.abs(dy) > 3) actMoved = true;
+
+          if(dy < -THRESH){
+            game.input.jumpPressed = true;
+            // сбрасываем точку, чтобы не спамить прыжками одним свайпом
+            actStartX = x;
+            actStartY = y;
+            actMoved = true;
+            try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){ }
           }
-        } else {
-          // если движение маленькое — прекращаем движение
-          game.input.left = false;
-          game.input.right = false;
-        }
-        // вертикальный свайп вверх — прыжок
-        if(dy < -THRESH){
-          if(!game.input.locked) game.input.jumpPressed = true;
-          // обновляем startY, чтобы не спамить прыжками
-          startY = e.clientY;
+          e.preventDefault();
+          return;
         }
       }
+
       function handleUp(e){
-        if(!touchActive) return;
-        // сбросить управление
-        game.input.left = false;
-        game.input.right = false;
-        // короткий тап без движения — действие
-        const dt = performance.now() - downTime;
-        if(!moved && dt < 300){
-          if(!game.input.locked) game.input.actPressed = true;
+        if(!isTouchLike(e)) return;
+        const now = performance.now();
+        const { x, y } = relPos(e);
+
+        // Отпустили джойстик
+        if(e.pointerId === moveId){
+          moveId = null;
+          clearAnalog();
+          e.preventDefault();
+          return;
         }
-        touchActive = false;
+
+        // Отпустили правую руку: тап => прыжок, дабл-тап => действие
+        if(e.pointerId === actId){
+          const dt = now - actDownTime;
+          const THRESH = game.swipeThreshold || 24;
+          const dx = x - actStartX;
+          const dy = y - actStartY;
+          const moved = actMoved || Math.abs(dx) > THRESH || Math.abs(dy) > THRESH;
+
+          if(!moved && dt < TAP_MAX_MS){
+            if(now - lastTapTime < DOUBLE_TAP_MS){
+              game.input.actPressed = true;
+              lastTapTime = 0;
+              try{ if(navigator.vibrate) navigator.vibrate(12); }catch(_){ }
+            } else {
+              game.input.jumpPressed = true;
+              lastTapTime = now;
+              try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){ }
+            }
+          }
+
+          actId = null;
+          e.preventDefault();
+          return;
+        }
       }
-      canvasEl.addEventListener("pointerdown", handleDown, {passive:false});
-      canvasEl.addEventListener("pointermove", handleMove, {passive:false});
-      canvasEl.addEventListener("pointerup", handleUp, {passive:false});
-      canvasEl.addEventListener("pointercancel", handleUp, {passive:false});
+
+      canvasEl.addEventListener('pointerdown', handleDown, {passive:false});
+      canvasEl.addEventListener('pointermove', handleMove, {passive:false});
+      canvasEl.addEventListener('pointerup', handleUp, {passive:false});
+      canvasEl.addEventListener('pointercancel', handleUp, {passive:false});
     })();
 
     // Дополнительное управление на мобильных устройствах через гироскоп/акселерометр.
