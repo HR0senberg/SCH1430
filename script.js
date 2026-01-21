@@ -757,6 +757,31 @@ const ASSETS = {
     cols: 6,
     frames: { idle:[0,1], walk:[2,3,4,5] }
   },
+  // Учителя/завучи/директор (NPC) — один файл-спрайтлист (ОДИН PNG).
+  // 8 вариантов (строки) × 6 кадров (столбцы: idle1, idle2, walk1..walk4).
+  // Анимация движения — при ходьбе NPC; при приближении игрока — свечение.
+  // Учителя/завучи/директор (NPC) — один файл-спрайтлист (ОДИН PNG).
+// 8 вариантов (строки) × 14 кадров (столбцы: idle1, idle2, walk1..walk12).
+// Анимация движения — при ходьбе NPC; при приближении игрока — свечение.
+teacherSheet: {
+  img: new Image(),
+  loaded: false,
+  tileW: 96,
+  tileH: 128,
+  rows: 8,
+  cols: 14,
+  frames: { idle:[0,1], walk:[2,3,4,5,6,7,8,9,10,11,12,13] },
+  roleBands: {
+    teacher: { base:0, count:4 },
+    zavuch: { base:4, count:2 },
+    director:{ base:6, count:2 }
+  },
+  glow: {
+    teacher:"rgba(167,139,250,0.92)",
+    zavuch:"rgba(251,191,36,0.92)",
+    director:"rgba(248,113,113,0.95)"
+  }
+},
 // Двери кабинетов — один файл-спрайтлист с вариантами по предметам (тоже один ассет).
   doorSheet: {
     img: new Image(),
@@ -776,8 +801,70 @@ const ASSETS = {
       geography:"rgba(56,189,248,0.90)",
       exam:"rgba(253,224,71,0.92)"
     }
+  },
+  // Предметы для сбора (collectibles) — один файл-спрайтлист (ОДИН PNG).
+  // Внутри: 10 типов (строки по предметам/уровням) × 8 кадров (плавная анимация сияния).
+  collectibleSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 64,
+    tileH: 64,
+    rows: 10,
+    cols: 8,
+    // порядок строк в спрайт-листе
+    map: { math:0, russian:1, history:2, physics:3, cs:4, chemistry:5, gym:6, biology:7, geography:8, exam:9 },
+    // мягкое свечение при приближении игрока
+    glow: "rgba(253,224,71,0.95)"
   }
+
+  ,
+
+  // Платформы на уровнях — один файл (спрайт-лист) с темами по предметам (3 слайса: левый/середина/правый)
+  platformSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 32,
+    tileH: 24,
+    rows: 10,
+    cols: 3,
+    map: { math:0, russian:1, history:2, physics:3, cs:4, chemistry:5, gym:6, biology:7, geography:8, exam:9 },
+    glow: "rgba(255,255,255,0.22)"
+  },
+  // Враги на уровнях — один спрайт-лист (ассет) с очень плавной ходьбой (12 кадров)
+  enemySheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 96,
+    tileH: 96,
+    rows: 9,
+    cols: 16,
+    frames: { idle:[0,1], walk:[2,3,4,5,6,7,8,9,10,11,12,13], jump:14, fall:15 },
+    glow: {
+      classmate: "rgba(34,197,94,0.90)",
+      teacher: "rgba(167,139,250,0.92)",
+      zavuch: "rgba(251,191,36,0.92)",
+      director: "rgba(248,113,113,0.95)"
+    }
+  },
+  // Фон коридора — один зацикленный тайл (повторяется по X)
+  corridorBg: {
+    img: new Image(),
+    loaded: false,
+    tileW: 512,
+    tileH: 256
+  }
+,
+  // Окна коридора (спрайт-лист одним файлом: 3 варианта)
+  windowSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 160,
+    tileH: 180,
+    cols: 3
+  }
+
 };
+
 ASSETS.playerSheet.img.onload = () => { ASSETS.playerSheet.loaded = true; };
 ASSETS.playerSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет игрока', e); };
 ASSETS.playerSheet.img.src = 'assets/player_sheet.png';
@@ -789,9 +876,31 @@ ASSETS.classmateSheet.img.onload = () => { ASSETS.classmateSheet.loaded = true; 
 ASSETS.classmateSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет одноклассников', e); };
 ASSETS.classmateSheet.img.src = 'assets/classmate_sheet.png';
 
+ASSETS.teacherSheet.img.onload = () => { ASSETS.teacherSheet.loaded = true; };
+ASSETS.teacherSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет учителей', e); };
+ASSETS.teacherSheet.img.src = 'assets/teacher_sheet.png';
 ASSETS.doorSheet.img.onload = () => { ASSETS.doorSheet.loaded = true; };
 ASSETS.doorSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет дверей', e); };
 ASSETS.doorSheet.img.src = 'assets/door_sheet.png';
+ASSETS.collectibleSheet.img.onload = () => { ASSETS.collectibleSheet.loaded = true; };
+ASSETS.platformSheet.img.onload = () => { ASSETS.platformSheet.loaded = true; };
+ASSETS.collectibleSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет предметов', e); };
+ASSETS.collectibleSheet.img.src = 'assets/collectible_sheet.png';
+ASSETS.platformSheet.img.src = 'assets/platform_sheet.png';
+ASSETS.enemySheet.img.onload = () => { ASSETS.enemySheet.loaded = true; };
+ASSETS.enemySheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет врагов', e); };
+ASSETS.enemySheet.img.src = 'assets/enemy_sheet.png';
+
+ASSETS.corridorBg.img.onload = () => { ASSETS.corridorBg.loaded = true; };
+ASSETS.corridorBg.img.onerror = (e) => { console.warn('Не удалось загрузить ассет фона коридора', e); };
+ASSETS.corridorBg.img.src = 'assets/corridor_bg_tile.png';
+
+
+
+ASSETS.windowSheet.img.onload = () => { ASSETS.windowSheet.loaded = true; };
+ASSETS.windowSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет окон', e); };
+ASSETS.windowSheet.img.src = 'assets/window_sheet.png';
+
 function resizeCanvas(){
       const dpr = DPR();
       const rect = canvas.getBoundingClientRect();
@@ -895,11 +1004,31 @@ function resizeCanvas(){
         // Лифт — движущаяся платформа, которая поднимает игрока на второй этаж. Начинается у земли и движется вверх/вниз на 200px.
         this.platforms.push({ x: 200, y: this.world.groundY - 18, w: 60, h: 18, move:{ axis:'y', range: 200, speed: 50 } });
 
+
+        // === Окна коридора (отдельные ассеты) ===
+        // Окна НЕ привязаны к дверям/библиотеке — это отдельный слой "стены".
+        // 3 варианта окна берём из window_sheet.png (0: день, 1: закат, 2: ночь).
+        this.hubWindows = [
+          // Первый этаж (уровень дверей/библиотеки)
+          {x: 820,  y: this.world.groundY-215, w: 120, h: 135, v: 0},
+          {x: 1400, y: this.world.groundY-215, w: 120, h: 135, v: 1},
+          {x: 2140, y: this.world.groundY-215, w: 120, h: 135, v: 0},
+          {x: 2960, y: this.world.groundY-215, w: 120, h: 135, v: 2},
+
+          // Второй этаж (уровень дверей второго этажа)
+          {x: 980,  y: (this.world.groundY-200)-215, w: 120, h: 135, v: 2},
+          {x: 1600, y: (this.world.groundY-200)-215, w: 120, h: 135, v: 0},
+          {x: 2400, y: (this.world.groundY-200)-215, w: 120, h: 135, v: 1},
+        ];
+
         // NPC/двери/библиотека.
         // Каждому npc в коридоре добавляем параметр move, чтобы они ходили туда-сюда и коридор выглядел живым.
         this.objects = [
           {type:"library", x:300, y:this.world.groundY-150, w:120, h:150,
             text:"Это библиотека! Тут можно покупать улучшения 🙂"},
+          {type:"npc", role:"учитель", name:"Екатерина Эдуардовна", x:420, y:this.world.groundY-72, w:54, h:72,
+            text:"Привет! Я учитель 🙂 Подойди ближе — будет свечение. Удачи на уровнях!",
+            move:{axis:'x', range:50, speed:26}},
           {type:"npc", role:"одноклассник", name:"Маша", x:520, y:this.world.groundY-60, w:46, h:60,
             text:"Привет! Пойдём в математику? Там будут вопросы попроще.",
             move:{axis:'x', range:40, speed:30}},
@@ -1531,6 +1660,24 @@ function resizeCanvas(){
           if(badge) badge.textContent = `Уровень: Экзамен (${(DIFF[this.levelMode]||DIFF.normal).label})`;
           $("hud-tip").innerHTML = "Экзамен: победи мини-боссов и директора 🙂 Подходи и отвечай на вопросы!";
         }
+        // Делает предметы заметнее: подгоняем размер и хитбокс, чтобы совпадали с ассетом
+        if(Array.isArray(this.objects)){
+          for(const o of this.objects){
+            if(o && o.type === 'collectible'){
+              const s = 36; // визуально и по хитбоксу
+              const cx = o.x + (o.w||0)/2;
+              const cy = o.y + (o.h||0)/2;
+              o.w = s; o.h = s;
+              o.x = cx - s/2;
+              o.y = cy - s/2;
+              // запоминаем тип для отрисовки (строка спрайта)
+              if(!o.kind){
+                o.kind = (o.id ? String(o.id).split('_')[0] : levelId);
+              }
+            }
+          }
+        }
+
 
       },
       loop(t){
@@ -1679,6 +1826,38 @@ function resizeCanvas(){
                 o.animT = (o.animT || 0) + dt;
               }
 
+
+        // --- NPC_ANIM (учителя/завучи/директор): очень плавная анимация ходьбы из одного спрайт-листа ---
+if(Array.isArray(this.objects) && typeof ASSETS !== 'undefined' && ASSETS.teacherSheet){
+  const sheet = ASSETS.teacherSheet;
+  const idleFrames = (sheet.frames && sheet.frames.idle) ? sheet.frames.idle : [0,1];
+  const walkFrames = (sheet.frames && sheet.frames.walk) ? sheet.frames.walk : [2,3,4,5,6,7,8,9,10,11,12,13];
+
+  for(const o of this.objects){
+    if(!o || o.type !== 'npc') continue;
+    if(!(o.role === 'учитель' || o.role === 'завуч' || o.role === 'директор')) continue;
+
+    const spd = (o.move && typeof o.move.speed === 'number') ? o.move.speed : 0;
+    const moving = !!o.move && Math.abs(spd) > 1;
+    const state = moving ? 'walk' : 'idle';
+
+    if(o.animState !== state){
+      o.animState = state;
+      o.animT = 0;
+    } else {
+      o.animT = (o.animT || 0) + dt;
+    }
+
+    const frames = moving ? walkFrames : idleFrames;
+
+    // Очень плавная скорость кадров: при обычной ходьбе ~12fps, при быстром NPC до ~25fps
+    const speedNorm = moving ? Math.min(2.2, Math.abs(spd) / 22) : 1.0;
+    const fps = moving ? (12 + speedNorm * 6) : 1.6; // walk 12..25 fps, idle ~1.6 fps
+    const idx = Math.floor((o.animT || 0) * fps) % frames.length;
+    o.animFrame = frames[idx] | 0;
+  }
+}
+
               const frames = moving ? walkFrames : idleFrames;
               const speedNorm = moving ? Math.min(2.0, Math.abs(spd) / 35) : 1.0;
               const fps = moving ? (7 + speedNorm * 6) : 1.2; // walk ~7..19fps, idle ~1.2fps
@@ -1793,6 +1972,19 @@ function resizeCanvas(){
                 }
                 o.jumpCD = 0.6 + Math.random()*1.4;    // сек
                 o.jumpT = o.jumpCD;
+                // фиксируем строку спрайта врага (чтобы внешний вид не менялся)
+                if(o.enemyRow == null){
+                  const key = String(o.id||'') + '|' + String(o.name||o.label||'') + '|' + String(o.role||'') + '|' + String(o.subject||'');
+                  let h = 0;
+                  for(let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i))|0;
+                  const role = String(o.role||'');
+                  if(role.includes('однокласс')) o.enemyRow = (h>>>0) % 4;                 // 0..3
+                  else if(role.includes('учител')) o.enemyRow = 4 + ((h>>>0) % 3);       // 4..6
+                  else if(role.includes('завуч')) o.enemyRow = 7;
+                  else if(role.includes('директор')) o.enemyRow = 8;
+                  else o.enemyRow = (h>>>0) % 4;
+                }
+
               }
 
               // туда-сюда
@@ -1812,6 +2004,19 @@ function resizeCanvas(){
                 o.vy = -(260 + Math.random()*60);
                 o.onGround = false;
                 o.jumpT = o.jumpCD;
+                // фиксируем строку спрайта врага (чтобы внешний вид не менялся)
+                if(o.enemyRow == null){
+                  const key = String(o.id||'') + '|' + String(o.name||o.label||'') + '|' + String(o.role||'') + '|' + String(o.subject||'');
+                  let h = 0;
+                  for(let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i))|0;
+                  const role = String(o.role||'');
+                  if(role.includes('однокласс')) o.enemyRow = (h>>>0) % 4;                 // 0..3
+                  else if(role.includes('учител')) o.enemyRow = 4 + ((h>>>0) % 3);       // 4..6
+                  else if(role.includes('завуч')) o.enemyRow = 7;
+                  else if(role.includes('директор')) o.enemyRow = 8;
+                  else o.enemyRow = (h>>>0) % 4;
+                }
+
               }
 
               // движение
@@ -1846,6 +2051,42 @@ function resizeCanvas(){
                   }
                 }
               }
+              // анимация врагов (для enemy_sheet.png)
+              if(o.animState == null) o.animState = 'idle';
+              if(o.animT == null) o.animT = 0;
+              // направление «лица»
+              if(o.vx < -1) o.face = -1;
+              else if(o.vx > 1) o.face = 1;
+
+              let st = 'idle';
+              if(!o.onGround){
+                st = (o.vy < 0) ? 'jump' : 'fall';
+              } else if(Math.abs(o.vx) > 1){
+                st = 'walk';
+              }
+
+              if(st !== o.animState){
+                o.animState = st;
+                o.animT = 0;
+              } else {
+                o.animT += dt;
+              }
+
+              if(st === 'walk'){
+                const speedNorm = Math.min(1.8, Math.abs(o.vx) / Math.max(1, o.aiSpeed || 80));
+                const fps = 10 + speedNorm * 10; // 10..28 fps
+                const idx = Math.floor(o.animT * fps) % 12;
+                o.animFrame = 2 + idx;
+              } else if(st === 'idle'){
+                const fps = 1.2;
+                const idx = Math.floor(o.animT * fps) % 2;
+                o.animFrame = idx;
+              } else if(st === 'jump'){
+                o.animFrame = 14;
+              } else {
+                o.animFrame = 15;
+              }
+
             }
           }
         }
@@ -2030,6 +2271,78 @@ function resizeCanvas(){
         if(fill){ ctx.fillStyle = fill; ctx.fillRect(p.x,p.y,w,h); }
         if(stroke){ ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.strokeRect(p.x+1,p.y+1,w-2,h-2); }
       },
+
+      drawPlatform(ctx, pl){
+        // Платформы: рисуем спрайтом (левый/середина/правый), при отсутствии ассета — fallback на прямоугольник
+        try{
+          if(typeof ASSETS !== 'undefined' && ASSETS.platformSheet && ASSETS.platformSheet.loaded){
+            const sheet = ASSETS.platformSheet;
+            const tw = sheet.tileW, th = sheet.tileH;
+
+            const ps = this.worldToScreen(pl.x, pl.y);
+            const x = ps.x, y = ps.y, w = pl.w, h = pl.h;
+
+            let sub = this.levelId || 'math';
+            sub = (typeof normalizeSubject === 'function') ? normalizeSubject(sub) : sub;
+            const row = (sheet.map && sheet.map[sub] != null) ? sheet.map[sub] : 0;
+
+            const sy = row * th;
+
+            const drawSlice = (col, dx, dw)=>{
+              const sx = col * tw;
+              ctx.drawImage(sheet.img, sx, sy, tw, th, dx, y, dw, h);
+            };
+
+            // лёгкое свечение при близости (чуть-чуть), не как у NPC
+            const p = this.player;
+            const near = p && (Math.abs((p.x+p.w/2) - (pl.x+pl.w/2)) < 140) && (Math.abs((p.y+p.h/2) - (pl.y+pl.h/2)) < 120);
+
+            if(near){
+              ctx.save();
+              ctx.shadowColor = sheet.glow || "rgba(255,255,255,0.22)";
+              ctx.shadowBlur = 10;
+            }
+
+            // Если платформа узкая — рисуем одним куском (середина)
+            if(w < tw * 2){
+              drawSlice(1, x, w);
+            } else {
+              drawSlice(0, x, tw);
+              let midX = x + tw;
+              let remain = w - tw*2;
+              while(remain > 0){
+                const dw = Math.min(tw, remain);
+                // middle tile
+                ctx.drawImage(sheet.img, 1*tw, sy, tw, th, midX, y, dw, h);
+                midX += dw;
+                remain -= dw;
+              }
+              drawSlice(2, x + w - tw, tw);
+            }
+
+            // верхний блик для объёма
+            ctx.globalAlpha = 0.18;
+            ctx.fillStyle = "rgba(255,255,255,1)";
+            ctx.fillRect(x+1, y+1, Math.max(0, w-2), 2);
+            ctx.globalAlpha = 1;
+
+            if(near) ctx.restore();
+            return;
+          }
+        }catch(_){ /* fallback ниже */ }
+
+// fallback: пока ассет ещё не загрузился — рисуем безопасный деревянный прямоугольник (без рекурсии и вылетов)
+const fp = this.worldToScreen(pl.x, pl.y);
+ctx.save();
+ctx.fillStyle = "rgba(121,80,40,0.85)";
+ctx.fillRect(fp.x, fp.y, pl.w, pl.h);
+ctx.fillStyle = "rgba(255,255,255,0.18)";
+ctx.fillRect(fp.x+1, fp.y+1, Math.max(0, pl.w-2), 2);
+ctx.strokeStyle = "rgba(0,0,0,0.35)";
+ctx.lineWidth = 2;
+ctx.strokeRect(fp.x+1, fp.y+1, Math.max(0, pl.w-2), Math.max(0, pl.h-2));
+ctx.restore();
+      },
       drawLabel(ctx, x,y,text,alpha=0.92){
         const p = this.worldToScreen(x,y);
         ctx.globalAlpha = alpha;
@@ -2091,6 +2404,96 @@ function resizeCanvas(){
         ctx.fillStyle = 'rgba(255,255,255,.92)';
         ctx.fillRect(es.x, es.y, 6, 6);
       },
+                  drawCorridorDecorBack(ctx){
+        // Зацикленный фон коридора — сплошные кирпичи (hub only)
+        try{
+          if(this.mode !== 'hub') return;
+          if(typeof ASSETS === 'undefined' || !ASSETS.corridorBg || !ASSETS.corridorBg.loaded) return;
+
+          const bg = ASSETS.corridorBg;
+          const tileW = bg.tileW || bg.img.naturalWidth || 512;
+          const tileH = bg.tileH || bg.img.naturalHeight || 256;
+
+          const rect = canvas.getBoundingClientRect();
+          const viewW = rect.width;
+          const viewH = rect.height;
+
+          // фон-стена: тайлим кирпичный рисунок по X и Y (без растяжения), чтобы был ровный "сплошной" фон
+          const scale = 1.0;
+          const drawW = tileW * scale;
+          const drawH = tileH * scale;
+
+          const topY = 0;
+
+          // фон должен двигаться вместе с камерой (чуть медленнее для глубины)
+          const parallax = 0.92;
+          const camX = this.camera.x * parallax;
+
+          // рисуем только видимые тайлы (по X и Y)
+          const startX = Math.floor(camX / drawW) * drawW - drawW;
+          const endX = camX + viewW + drawW;
+
+          ctx.save();
+          ctx.globalAlpha = 0.96;
+
+          for(let x = startX; x <= endX; x += drawW){
+            const sx = Math.round(x - camX);
+            for(let y = topY; y <= viewH + drawH; y += drawH){
+              ctx.drawImage(bg.img, 0, 0, tileW, tileH, sx, y, drawW, drawH);
+            }
+          }
+
+          ctx.restore();
+        }catch(_){ }
+      },
+
+
+      drawHubWindows(ctx){
+        // Отдельный слой окон в коридоре (hub only). Не взаимодействуют, без коллизий.
+        try{
+          if(this.mode !== 'hub') return;
+          const arr = this.hubWindows;
+          if(!Array.isArray(arr) || arr.length === 0) return;
+          if(typeof ASSETS === 'undefined' || !ASSETS.windowSheet || !ASSETS.windowSheet.loaded) return;
+
+          const sheet = ASSETS.windowSheet;
+          const tw = sheet.tileW || 160;
+          const th = sheet.tileH || 180;
+          const cols = sheet.cols || 3;
+
+          // Окна рисуем с лёгким параллаксом, чтобы смотрелось глубже, но без "налазания"
+          const parallax = 0.96;
+          const camX = this.camera.x * parallax;
+
+          ctx.save();
+          ctx.globalAlpha = 0.98;
+
+          for(const w of arr){
+            const v = Math.max(0, Math.min(cols-1, (w.v|0)));
+            const sx = v * tw;
+            const sy = 0;
+
+            // Ручной перевод в экранные координаты с параллаксом по X:
+            const screenX = (w.x - camX);
+            const screenY = w.y; // по Y параллакс не нужен
+
+            // Небольшая тень, чтобы окна читались на кирпичах
+            ctx.save();
+            ctx.shadowColor = "rgba(0,0,0,0.35)";
+            ctx.shadowBlur = 10;
+            ctx.drawImage(sheet.img, sx, sy, tw, th, screenX, screenY, w.w, w.h);
+            ctx.restore();
+          }
+
+          ctx.restore();
+        }catch(_){ /* silent */ }
+      },
+
+      drawCorridorDecorFront(ctx){
+        // Передний декор отключён — фон сплошной и зацикленный
+        return;
+      },
+
       render(ctx, canvas){
         const rect = canvas.getBoundingClientRect();
         const W = rect.width, H = rect.height;
@@ -2102,15 +2505,6 @@ function resizeCanvas(){
         grad.addColorStop(1, "#070b1d");
         ctx.fillStyle = grad;
         ctx.fillRect(0,0,W,H);
-
-        ctx.globalAlpha = 0.35;
-        for(let i=0;i<10;i++){
-          const x = (i*340 - (this.camera.x*0.3)%340);
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(x+60, 55, 170, 6);
-        }
-        ctx.globalAlpha = 1;
-
         // Рисуем всплывающие эффекты (например, +знаний)
         if(Array.isArray(this.effects)){
           for(const ef of this.effects){
@@ -2126,9 +2520,18 @@ function resizeCanvas(){
           }
         }
 
+        // Corridor decor (background)
+        this.drawCorridorDecorBack(ctx);
+
+        // Окна — отдельным слоем на стене
+        this.drawHubWindows(ctx);
+
         for(const pl of this.platforms){
-          this.drawRect(ctx, pl.x, pl.y, pl.w, pl.h, "rgba(255,255,255,.10)", "rgba(255,255,255,.16)");
+          this.drawPlatform(ctx, pl);
         }
+
+        // Corridor decor (front)
+        this.drawCorridorDecorFront(ctx);
 
         ctx.globalAlpha = 0.12;
         for(let x=0; x<this.world.w; x+=90){
@@ -2138,9 +2541,142 @@ function resizeCanvas(){
 
         for(const o of this.objects){
           if(o.type === 'collectible'){
-            // Рисуем предметы для сбора (звёзды) ярким цветом
-            this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(253,224,71,.65)", "rgba(255,255,255,.25)");
-            this.drawLabel(ctx, o.x + o.w/2, o.y - 10, "⭐");
+            // Предметы для сбора — ассет одним файлом (спрайт-лист) + лёгкая анимация сияния
+            let drew = false;
+            try{
+              if(typeof ASSETS !== 'undefined' && ASSETS.collectibleSheet && ASSETS.collectibleSheet.loaded){
+                const sheet = ASSETS.collectibleSheet;
+                const tw = sheet.tileW, th = sheet.tileH;
+                const ps = this.worldToScreen(o.x, o.y);
+
+                // тип предмета: либо явно, либо по id/уровню
+                let sub = o.kind || o.subject || (o.id ? String(o.id).split('_')[0] : (this.levelId || 'math'));
+                sub = (typeof normalizeSubject === 'function') ? normalizeSubject(sub) : sub;
+                const row = (sheet.map && sheet.map[sub] != null) ? sheet.map[sub] : 0;
+
+                const t = performance.now() / 1000;
+                const fps = 10; // достаточно плавно для предметов
+                const frame = Math.floor(t * fps + row * 0.7) % (sheet.cols || 8);
+                const sx = frame * tw;
+                const sy = row * th;
+
+                // свечение рядом с игроком
+                const p = this.player;
+                const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 150) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 150);
+
+                if(near){
+                  ctx.save();
+                  ctx.shadowColor = sheet.glow || "rgba(253,224,71,0.95)";
+                  ctx.shadowBlur = 18;
+                  ctx.shadowOffsetX = 0;
+                  ctx.shadowOffsetY = 0;
+                  ctx.drawImage(sheet.img, sx, sy, tw, th, ps.x, ps.y, o.w, o.h);
+                  ctx.restore();
+                } else {
+                  ctx.drawImage(sheet.img, sx, sy, tw, th, ps.x, ps.y, o.w, o.h);
+                }
+
+                drew = true;
+              }
+            }catch(e){
+              // тихий фолбэк
+            }
+
+            if(!drew){
+              // fallback (если ассет не загрузился)
+              this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(253,224,71,.65)", "rgba(255,255,255,.25)");
+              this.drawLabel(ctx, o.x + o.w/2, o.y - 10, "⭐");
+            }
+
+          } else if(o.type === "enemy"){
+            // Враги — ассет одним файлом (enemy_sheet.png) + очень плавная ходьба
+            let drew = false;
+            try{
+              if(typeof ASSETS !== 'undefined' && ASSETS.enemySheet && ASSETS.enemySheet.loaded){
+                const sheet = ASSETS.enemySheet;
+                const tw = sheet.tileW, th = sheet.tileH;
+                const ps = this.worldToScreen(o.x, o.y);
+
+                // кадр анимации (столбец)
+                let col = (typeof o.animFrame === 'number') ? (o.animFrame|0) : 0;
+                col = clamp(col, 0, (sheet.cols||16)-1);
+
+                // строка (вариант)
+                let row = (typeof o.enemyRow === 'number') ? (o.enemyRow|0) : 0;
+                if(o.enemyRow == null){
+                  const key = String(o.id||'') + '|' + String(o.name||o.label||'') + '|' + String(o.role||'') + '|' + String(o.subject||'');
+                  let h = 0;
+                  for(let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i))|0;
+                  const role = String(o.role||'');
+                  if(role.includes('однокласс')) row = (h>>>0) % 4;
+                  else if(role.includes('учител')) row = 4 + ((h>>>0) % 3);
+                  else if(role.includes('завуч')) row = 7;
+                  else if(role.includes('директор')) row = 8;
+                  else row = (h>>>0) % 4;
+                  o.enemyRow = row;
+                }
+                row = clamp(row, 0, (sheet.rows||9)-1);
+
+                const sx = col * tw;
+                const sy = row * th;
+
+                // рисуем чуть крупнее хитбокса (как NPC), но чтобы не перекрывать всё
+                const dw = o.w * 1.35;
+                const dh = o.h * 1.45;
+                const dx = ps.x + o.w/2 - dw/2;
+                const dy = ps.y + o.h - dh;
+
+                // свечение при приближении игрока
+                const p = this.player;
+                const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 170) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 170);
+
+                const role = String(o.role||'');
+                let glow = (sheet.glow && sheet.glow.classmate) ? sheet.glow.classmate : "rgba(34,197,94,0.90)";
+                if(role.includes('учител')) glow = (sheet.glow && sheet.glow.teacher) ? sheet.glow.teacher : "rgba(167,139,250,0.92)";
+                if(role.includes('завуч')) glow = (sheet.glow && sheet.glow.zavuch) ? sheet.glow.zavuch : "rgba(251,191,36,0.92)";
+                if(role.includes('директор')) glow = (sheet.glow && sheet.glow.director) ? sheet.glow.director : "rgba(248,113,113,0.95)";
+
+                const drawOne = ()=>{
+                  ctx.save();
+                  if(o.face === -1){
+                    ctx.translate(dx + dw, dy);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(sheet.img, sx, sy, tw, th, 0, 0, dw, dh);
+                  } else {
+                    ctx.drawImage(sheet.img, sx, sy, tw, th, dx, dy, dw, dh);
+                  }
+                  ctx.restore();
+                };
+
+                if(near){
+                  ctx.save();
+                  ctx.shadowColor = glow;
+                  ctx.shadowBlur = 22;
+                  ctx.shadowOffsetX = 0;
+                  ctx.shadowOffsetY = 0;
+                  // рисуем один раз: тень+спрайт
+                  if(o.face === -1){
+                    ctx.translate(dx + dw, dy);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(sheet.img, sx, sy, tw, th, 0, 0, dw, dh);
+                  } else {
+                    ctx.drawImage(sheet.img, sx, sy, tw, th, dx, dy, dw, dh);
+                  }
+                  ctx.restore();
+                } else {
+                  drawOne();
+                }
+
+                drew = true;
+              }
+            }catch(e){
+              // тихий фолбэк
+            }
+
+            if(!drew){
+              this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.14)", "rgba(255,255,255,.20)");
+            }
+
           } else if(o.type === "door"){
             // Дверь кабинета (ассет одним файлом; разные предметы — разные кадры)
             let drew = false;
@@ -2238,6 +2774,8 @@ function resizeCanvas(){
                   const rows = sheet.rows || 8;
                   const cols = sheet.cols || 6;
 
+
+                  const glow = (sheet.glow && sheet.glow.classmate) ? sheet.glow.classmate : "rgba(96,165,250,0.90)";
                   let vi = (o.variant != null) ? (o.variant|0) : 0;
                   if(o.variant == null){
                     const s = String(o.name || o.label || '') + '|' + String(o.role || '');
@@ -2260,7 +2798,7 @@ function resizeCanvas(){
 
                   if(near){
                     ctx.save();
-                    ctx.shadowColor = "rgba(96,165,250,0.92)";
+                    ctx.shadowColor = glow;
                     ctx.shadowBlur = 22;
                     ctx.shadowOffsetX = 0;
                     ctx.shadowOffsetY = 0;
@@ -2289,7 +2827,77 @@ function resizeCanvas(){
                 // тихий фолбэк
               }
             }
-            if(!drewNpc){
+            
+            // NPC-учителя/завучи/директор (ассет одним файлом). Анимация — ходьба (см. update()) + свечение рядом с игроком.
+            if(!drewNpc && o && o.type === 'npc' && (o.role === 'учитель' || o.role === 'завуч' || o.role === 'директор')){
+              try{
+                if(typeof ASSETS !== 'undefined' && ASSETS.teacherSheet && ASSETS.teacherSheet.loaded){
+                  const sheet = ASSETS.teacherSheet;
+                  const tw = sheet.tileW, th = sheet.tileH;
+                  const ps = this.worldToScreen(o.x, o.y);
+                  const rows = sheet.rows || 8;
+                  const cols = sheet.cols || 6;
+
+                  let base = 0, count = 4;
+                  let glow = (sheet.glow && sheet.glow.teacher) ? sheet.glow.teacher : "rgba(167,139,250,0.92)";
+                  if(o.role === 'завуч'){
+                    base = 4; count = 2;
+                    glow = (sheet.glow && sheet.glow.zavuch) ? sheet.glow.zavuch : "rgba(251,191,36,0.92)";
+                  } else if(o.role === 'директор'){
+                    base = 6; count = 2;
+                    glow = (sheet.glow && sheet.glow.director) ? sheet.glow.director : "rgba(248,113,113,0.95)";
+                  }
+
+                  let vi = (o.variant != null) ? (o.variant|0) : 0;
+                  if(o.variant == null){
+                    const s = String(o.name || o.label || '') + '|' + String(o.role || '');
+                    let h = 0;
+                    for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i))|0; }
+                    vi = base + (Math.abs(h) % count);
+                  }
+                  vi = Math.max(0, Math.min(rows-1, vi));
+
+                  let fi = (o.animFrame != null) ? (o.animFrame|0) : 0;
+                  fi = Math.max(0, Math.min(cols-1, fi));
+
+                  const sx = fi * tw;
+                  const sy = vi * th;
+
+                  const p = this.player;
+                  const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 160) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 180);
+                  const flip = (o.dir != null ? o.dir : 1) < 0;
+
+                  const drawOne = () => {
+                    if(flip){
+                      ctx.save();
+                      ctx.translate(ps.x + o.w, ps.y);
+                      ctx.scale(-1,1);
+                      ctx.drawImage(sheet.img, sx, sy, tw, th, 0, 0, o.w, o.h);
+                      ctx.restore();
+                    } else {
+                      ctx.drawImage(sheet.img, sx, sy, tw, th, ps.x, ps.y, o.w, o.h);
+                    }
+                  };
+
+                  if(near){
+                    ctx.save();
+                    ctx.shadowColor = glow;
+                    ctx.shadowBlur = (o.role === 'директор') ? 30 : 22;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                    drawOne();
+                    ctx.restore();
+                  } else {
+                    drawOne();
+                  }
+
+                  drewNpc = true;
+                }
+              }catch(e){
+                // тихий фолбэк
+              }
+            }
+if(!drewNpc){
               this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.16)", "rgba(255,255,255,.20)");
               this.drawRect(ctx, o.x+8, o.y-18, o.w-16, 18, "rgba(255,255,255,.14)", "rgba(255,255,255,.20)");
             }
