@@ -61,30 +61,29 @@
 
   <section id="screen-game" class="screen screen-game hidden" aria-label="Игра">
     <div class="hud">
-      <div class="hud__left">
-        <div class="badge">Хаб: школьный коридор</div>
-        <div id="hud-tip" class="hud__tip">Подойди к человеку/двери и нажми <b>E</b> или <b>У</b> (или ✋).</div>
-                <div id="hud-debug" class="hud__debug">Знания: <b><span id="hud-knowledge">10</span></b> · Улучшения: <span id="hud-upg">0</span></div>
-      </div>
-      <div class="hud__right">
+      <!-- Левый верхний HUD: вертикальная колонка, чтобы элементы не налезали друг на друга -->
+      <div class="hud__topLeft" aria-label="HUD слева">
         <button id="btn-exit-to-menu" class="btn btn-small">⟵ Меню</button>
+
+        <!-- Таймер уровня -->
+        <div id="hud-timer" class="hud__timer hidden" aria-hidden="true">
+          ⏱ Время: <b><span id="hud-timer-val">0</span> с</b>
+        </div>
+
+        <!-- Индикатор прогресса по пройденным кабинетам -->
+        <div id="hud-progress" class="hud-progress">
+          📚 Прогресс: <b><span id="hud-progress-val">0%</span></b>
+        </div>
+      </div>
+
       <div id="exam-hud" class="examHud hidden" aria-live="polite">
         <div class="examHud__title">Экзамен: уверенность</div>
         <div class="examHud__bar"><div id="exam-bar" class="examHud__fill" style="width:100%"></div></div>
         <div id="exam-val" class="examHud__val">100%</div>
       </div>
 
-      <!-- Таймер уровня -->
-      <div id="hud-timer" class="hud__timer hidden" aria-hidden="true">
-        ⏱ Время: <b><span id="hud-timer-val">0</span> с</b>
-      </div>
-
-      <!-- Индикатор прогресса по пройденным кабинетам -->
-      <div id="hud-progress" class="hud-progress">
-        📚 Прогресс: <b><span id="hud-progress-val">0%</span></b>
-      </div>
-
-      </div>
+      <!-- Подсказка управления (нужна для логики в script.js). Размещаем отдельно, чтобы не мешала HUD слева. -->
+      <div id="hud-tip" class="hud__tip hud__tipOverlay">Подойди к объекту и нажми <b>E</b>/<b>У</b> (или ✋).</div>
     </div>
 
     <canvas id="game" width="1280" height="720"></canvas>

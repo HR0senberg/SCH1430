@@ -802,6 +802,21 @@ teacherSheet: {
       exam:"rgba(253,224,71,0.92)"
     }
   },
+  // Выход из уровня — ассет одним файлом (статичный PNG). Свечение рядом — кодом.
+  exitSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 90,
+    tileH: 130
+  },
+  // Объект «Экзамен» на уровне экзамен — отдельный ассет (один PNG).
+  examObject: {
+    img: new Image(),
+    loaded: false,
+    tileW: 256,
+    tileH: 256
+  },
+
   // Предметы для сбора (collectibles) — один файл-спрайтлист (ОДИН PNG).
   // Внутри: 10 типов (строки по предметам/уровням) × 8 кадров (плавная анимация сияния).
   collectibleSheet: {
@@ -863,6 +878,32 @@ teacherSheet: {
     cols: 3
   }
 
+,
+  // Фоны кабинетов (уровней) — один спрайт-лист: 10 строк по предметам.
+  // Каждый кадр — тайл 256×256, который зацикливается по X и Y.
+  levelBgSheet: {
+    img: new Image(),
+    loaded: false,
+    tileW: 256,
+    tileH: 256,
+    rows: 10,
+    map: { math:0, russian:1, history:2, physics:3, cs:4, chemistry:5, gym:6, biology:7, geography:8, exam:9 }
+  }
+,
+  // Декор кабинетов (уровней): 3 полосы (потолок/стена/низ) в одном спрайт-листе.
+  // 10 строк по предметам, 3 колонки по типу полосы. Тайлим по X, чтобы кабинет был "сплошным".
+  levelDecorStrips: {
+    img: new Image(),
+    loaded: false,
+    tileW: 512,
+    tileH: 160,
+    cols: 3,
+    rows: 10,
+    map: { math:0, russian:1, history:2, physics:3, cs:4, chemistry:5, gym:6, biology:7, geography:8, exam:9 }
+  }
+
+
+
 };
 
 ASSETS.playerSheet.img.onload = () => { ASSETS.playerSheet.loaded = true; };
@@ -882,6 +923,15 @@ ASSETS.teacherSheet.img.src = 'assets/teacher_sheet.png';
 ASSETS.doorSheet.img.onload = () => { ASSETS.doorSheet.loaded = true; };
 ASSETS.doorSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет дверей', e); };
 ASSETS.doorSheet.img.src = 'assets/door_sheet.png';
+
+ASSETS.exitSheet.img.onload = () => { ASSETS.exitSheet.loaded = true; };
+ASSETS.exitSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет выхода', e); };
+ASSETS.exitSheet.img.src = 'assets/exit_sheet.png';
+
+ASSETS.examObject.img.onload = () => { ASSETS.examObject.loaded = true; };
+ASSETS.examObject.img.onerror = (e) => { console.warn('Не удалось загрузить ассет объекта Экзамен', e); };
+ASSETS.examObject.img.src = 'assets/exam_object.png';
+
 ASSETS.collectibleSheet.img.onload = () => { ASSETS.collectibleSheet.loaded = true; };
 ASSETS.platformSheet.img.onload = () => { ASSETS.platformSheet.loaded = true; };
 ASSETS.collectibleSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет предметов', e); };
@@ -900,6 +950,17 @@ ASSETS.corridorBg.img.src = 'assets/corridor_bg_tile.png';
 ASSETS.windowSheet.img.onload = () => { ASSETS.windowSheet.loaded = true; };
 ASSETS.windowSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет окон', e); };
 ASSETS.windowSheet.img.src = 'assets/window_sheet.png';
+
+ASSETS.levelBgSheet.img.onload = () => { ASSETS.levelBgSheet.loaded = true; };
+ASSETS.levelBgSheet.img.onerror = (e) => { console.warn('Не удалось загрузить ассет фона уровней', e); };
+ASSETS.levelBgSheet.img.src = 'assets/level_bg_sheet.png';
+
+
+ASSETS.levelDecorStrips.img.onload = () => { ASSETS.levelDecorStrips.loaded = true; };
+ASSETS.levelDecorStrips.img.onerror = (e) => { console.warn('Не удалось загрузить ассет декора уровней', e); };
+ASSETS.levelDecorStrips.img.src = 'assets/level_decor_strips_sheet.png';
+
+
 
 function resizeCanvas(){
       const dpr = DPR();
@@ -2448,6 +2509,107 @@ ctx.restore();
       },
 
 
+      drawLevelBackground(ctx){
+        // Фон кабинета (level mode) — тайлим нужный тайл из level_bg_sheet.png
+        try{
+          if(this.mode !== 'level') return;
+          if(typeof ASSETS === 'undefined' || !ASSETS.levelBgSheet || !ASSETS.levelBgSheet.loaded) return;
+
+          const sheet = ASSETS.levelBgSheet;
+          const tileW = sheet.tileW || 256;
+          const tileH = sheet.tileH || 256;
+
+          const rect = canvas.getBoundingClientRect();
+          const viewW = rect.width;
+          const viewH = rect.height;
+
+          const sub = (typeof normalizeSubject === 'function')
+            ? normalizeSubject(this.levelId || 'math')
+            : (this.levelId || 'math');
+
+          const row = (sheet.map && sheet.map[sub] != null) ? sheet.map[sub] : 0;
+          const sy = row * tileH;
+
+          // фон двигается вместе с камерой (без параллакса, чтобы не «плыть»)
+          const camX = this.camera.x;
+
+          // рисуем только видимые тайлы
+          const startX = Math.floor(camX / tileW) * tileW - tileW;
+          const endX = camX + viewW + tileW;
+
+          ctx.save();
+          ctx.globalAlpha = 0.98;
+
+          for(let x = startX; x <= endX; x += tileW){
+            const sx = Math.round(x - camX);
+            for(let y = 0; y <= viewH + tileH; y += tileH){
+              ctx.drawImage(sheet.img, 0, sy, tileW, tileH, sx, y, tileW, tileH);
+            }
+          }
+
+          ctx.restore();
+        }catch(_){ }
+      },
+
+      drawLevelDecorStrips(ctx){
+        // Декор кабинета (level mode): 3 горизонтальные полосы (потолок/стена/низ) из level_decor_strips_sheet.png
+        // Важно: рисуем ПОД платформами/игроком, чтобы ничего не мешало геймплею.
+        try{
+          if(this.mode !== 'level') return;
+          if(typeof ASSETS === 'undefined' || !ASSETS.levelDecorStrips || !ASSETS.levelDecorStrips.loaded) return;
+
+          const sheet = ASSETS.levelDecorStrips;
+          const tileW = sheet.tileW || 512;
+          const tileH = sheet.tileH || 160;
+
+          const rect = canvas.getBoundingClientRect();
+          const viewW = rect.width;
+          const viewH = rect.height;
+
+          const sub = (typeof normalizeSubject === 'function')
+            ? normalizeSubject(this.levelId || 'math')
+            : (this.levelId || 'math');
+
+          const row = (sheet.map && sheet.map[sub] != null) ? sheet.map[sub] : 0;
+
+          // декор двигается вместе с камерой (без параллакса), тайлим только по X
+          const camX = this.camera.x;
+
+          const startX = Math.floor(camX / tileW) * tileW - tileW;
+          const endX = camX + viewW + tileW;
+
+          // Адаптивные высоты под разные экраны (мобильные/десктоп)
+          const k = Math.max(0.78, Math.min(1.08, viewH / 620));
+          const ceilY = 0;
+          const ceilH = Math.floor(92 * k);
+
+          const wallY = Math.floor(92 * k);
+          const wallH = Math.floor(220 * k);
+
+          const baseH = Math.floor(92 * k);
+          const baseY = Math.max(0, Math.min(viewH - baseH, (this.world && this.world.groundY ? (this.world.groundY - baseH) : (viewH - baseH))));
+
+          ctx.save();
+          ctx.globalAlpha = 0.98;
+
+          for(let x = startX; x <= endX; x += tileW){
+            const dx = Math.round(x - camX);
+
+            // col 0: потолок
+            ctx.drawImage(sheet.img, 0*tileW, row*tileH, tileW, tileH, dx, ceilY, tileW, ceilH);
+
+            // col 1: стена/основной декор
+            ctx.drawImage(sheet.img, 1*tileW, row*tileH, tileW, tileH, dx, wallY, tileW, wallH);
+
+            // col 2: низ (плинтус/трубы)
+            ctx.drawImage(sheet.img, 2*tileW, row*tileH, tileW, tileH, dx, baseY, tileW, baseH);
+          }
+
+          ctx.restore();
+        }catch(_){ }
+      },
+
+
       drawHubWindows(ctx){
         // Отдельный слой окон в коридоре (hub only). Не взаимодействуют, без коллизий.
         try{
@@ -2520,11 +2682,16 @@ ctx.restore();
           }
         }
 
-        // Corridor decor (background)
-        this.drawCorridorDecorBack(ctx);
-
-        // Окна — отдельным слоем на стене
-        this.drawHubWindows(ctx);
+        // Фон сцены
+        if(this.mode === 'hub'){
+          // Коридор: кирпичный тайл + окна
+          this.drawCorridorDecorBack(ctx);
+          this.drawHubWindows(ctx);
+        } else if(this.mode === 'level'){
+          // Кабинеты: тематический тайл-фон по предмету
+          this.drawLevelBackground(ctx);
+          this.drawLevelDecorStrips(ctx);
+        }
 
         for(const pl of this.platforms){
           this.drawPlatform(ctx, pl);
@@ -2532,14 +2699,15 @@ ctx.restore();
 
         // Corridor decor (front)
         this.drawCorridorDecorFront(ctx);
-
-        ctx.globalAlpha = 0.12;
-        for(let x=0; x<this.world.w; x+=90){
-          this.drawRect(ctx, x, this.world.groundY+10, 2, 180, "rgba(255,255,255,.20)", null);
+        // Лёгкая разметка пола — только в коридоре (чтобы кабинет не «шумел»)
+        if(this.mode === 'hub'){
+          ctx.globalAlpha = 0.12;
+          for(let x=0; x<this.world.w; x+=90){
+            this.drawRect(ctx, x, this.world.groundY+10, 2, 180, "rgba(255,255,255,.20)", null);
+          }
+          ctx.globalAlpha = 1;
         }
-        ctx.globalAlpha = 1;
-
-        for(const o of this.objects){
+for(const o of this.objects){
           if(o.type === 'collectible'){
             // Предметы для сбора — ассет одним файлом (спрайт-лист) + лёгкая анимация сияния
             let drew = false;
@@ -2677,6 +2845,38 @@ ctx.restore();
               this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.14)", "rgba(255,255,255,.20)");
             }
 
+          } else if(o.type === "exit"){
+            // Дверь «Выход» (ассет одним файлом). Эффект — только свечение, когда игрок рядом.
+            let drew = false;
+            try{
+              if(typeof ASSETS !== 'undefined' && ASSETS.exitSheet && ASSETS.exitSheet.loaded){
+                const sheet = ASSETS.exitSheet;
+                const ps = this.worldToScreen(o.x, o.y);
+
+                const p = this.player;
+                const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 170) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 190);
+
+                if(near){
+                  ctx.save();
+                  ctx.shadowColor = "rgba(253,224,71,0.95)";
+                  ctx.shadowBlur = 26;
+                  ctx.shadowOffsetX = 0;
+                  ctx.shadowOffsetY = 0;
+                  ctx.drawImage(sheet.img, 0, 0, sheet.tileW, sheet.tileH, ps.x, ps.y, o.w, o.h);
+                  ctx.restore();
+                } else {
+                  ctx.drawImage(sheet.img, 0, 0, sheet.tileW, sheet.tileH, ps.x, ps.y, o.w, o.h);
+                }
+                drew = true;
+              }
+            }catch(e){
+              // тихий фолбэк
+            }
+
+            if(!drew){
+              this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.12)", "rgba(255,255,255,.22)");
+            }
+
           } else if(o.type === "door"){
             // Дверь кабинета (ассет одним файлом; разные предметы — разные кадры)
             let drew = false;
@@ -2724,6 +2924,43 @@ ctx.restore();
             if(doorLabel){
               this.drawLabel(ctx, o.x+o.w/2, o.y-10, `🚪 ${doorLabel}`);
             }
+          } else if(o.type === "decor"){
+            // Level decor object. Exam uses its own sprite (assets/exam_object.png).
+            let drewDecor = false;
+            const isExamDecor = (String(o.label||"").toLowerCase().includes("экзамен")) || (o.kind === "exam");
+            try{
+              if(isExamDecor && typeof ASSETS !== "undefined" && ASSETS.examObject && ASSETS.examObject.loaded){
+                const sheet = ASSETS.examObject;
+                const ps = this.worldToScreen(o.x, o.y);
+                const p = this.player;
+                const near = p && (Math.abs((p.x+p.w/2) - (o.x+o.w/2)) < 180) && (Math.abs((p.y+p.h/2) - (o.y+o.h/2)) < 180);
+
+                if(near){
+                  ctx.save();
+                  ctx.shadowColor = "rgba(253,224,71,0.85)";
+                  ctx.shadowBlur = 28;
+                  ctx.shadowOffsetX = 0;
+                  ctx.shadowOffsetY = 0;
+                  ctx.drawImage(sheet.img, 0, 0, sheet.tileW, sheet.tileH, ps.x, ps.y, o.w, o.h);
+                  ctx.restore();
+                } else {
+                  ctx.drawImage(sheet.img, 0, 0, sheet.tileW, sheet.tileH, ps.x, ps.y, o.w, o.h);
+                }
+                drewDecor = true;
+              }
+            }catch(e){
+              // silent fallback
+            }
+
+            if(!drewDecor){
+              this.drawRect(ctx, o.x, o.y, o.w, o.h, "rgba(255,255,255,.10)", "rgba(255,255,255,.18)");
+            }
+
+            const lbl = (o.label && String(o.label).trim()) || "";
+            if(lbl){
+              this.drawLabel(ctx, o.x + o.w/2, o.y - 10, lbl);
+            }
+          
           } else if(o.type === "library"){
   // Библиотека (ассет одним файлом). Анимация — только свечение, когда игрок рядом.
   let drew = false;
