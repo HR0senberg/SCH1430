@@ -3194,6 +3194,28 @@ if(!drewNpc){
 
     // --- тач-кнопки ---
     const touchButtons = document.querySelectorAll("[data-touch]");
+
+    // Мобильные мелочи: вибро и защита от 'залипания' кнопок при сворачивании
+    let _lastVibeAt = 0;
+    function vibro(ms){
+      try{
+        if(!navigator || !navigator.vibrate) return;
+        const now = Date.now();
+        if(now - _lastVibeAt < 80) return;
+        _lastVibeAt = now;
+        navigator.vibrate(ms);
+      }catch(_){}
+    }
+
+    function resetInputs(){
+      game.input.left = false;
+      game.input.right = false;
+      game.input.axisXTarget = 0;
+      game.input.usingAnalog = false;
+    }
+    window.addEventListener("blur", resetInputs);
+    document.addEventListener("visibilitychange", () => { if(document.hidden) resetInputs(); });
+
     function setTouch(name, down){
       if(name === "left") game.input.left = down;
       if(name === "right") game.input.right = down;
@@ -3206,6 +3228,7 @@ if(!drewNpc){
         e.preventDefault();
         try{ btn.setPointerCapture(e.pointerId); }catch(_){}
         setTouch(name, true);
+        if((name === "jump" || name === "act") && !game.input.locked) vibro(10);
         btn.classList.add("is-down");
       };
       const onUp = (e) => {

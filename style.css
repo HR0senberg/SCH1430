@@ -10,11 +10,26 @@
   --btn2:#10b981;
   --btnText:#fff;
   --stroke: rgba(0,0,0,.10);
+
+  /* safe-area (iOS notch/home indicator) */
+  --safe-top: env(safe-area-inset-top);
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
 }
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--text); }
-body{ overflow:hidden; background:#0b1020; }
+html{ -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body{
+  overflow:hidden;
+  background:#0b1020;
+  overscroll-behavior: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
 .screen{
   position:fixed; inset:0;
@@ -144,6 +159,7 @@ body{ overflow:hidden; background:#0b1020; }
   padding:0;
   justify-content: stretch;
   align-items: stretch;
+  touch-action: none;
 }
 
 .hud{
@@ -156,8 +172,8 @@ body{ overflow:hidden; background:#0b1020; }
 /* Левый верхний HUD: вертикальная колонка без налезаний */
 .hud__topLeft{
   position:absolute;
-  top:14px;
-  left:14px;
+  top: calc(var(--safe-top) + 14px);
+  left: calc(var(--safe-left) + 14px);
   display:flex;
   flex-direction:column;
   gap:10px;
@@ -192,7 +208,7 @@ body{ overflow:hidden; background:#0b1020; }
   position:absolute;
   left:50%;
   transform: translateX(-50%);
-  bottom: 96px;
+  bottom: calc(var(--safe-bottom) + 96px);
   z-index: 6;
   pointer-events:none;
 }
@@ -250,7 +266,9 @@ body{ overflow:hidden; background:#0b1020; }
 
 .touch-controls{
   position:absolute;
-  left:12px; right:12px; bottom:12px;
+  left: calc(var(--safe-left) + 12px);
+  right: calc(var(--safe-right) + 12px);
+  bottom: calc(var(--safe-bottom) + 12px);
   /* По умолчанию кнопки скрыты. Показываются только в режиме "Кнопки". */
   display:none;
   justify-content:space-between; align-items:flex-end;
@@ -266,7 +284,9 @@ body.touch-mode-buttons .touch-controls{ display:flex; }
   pointer-events:auto;
 }
 .tbtn{
-  width:70px; height:70px;
+  /* удобнее на телефоне */
+  width: clamp(72px, 14vw, 96px);
+  height: clamp(72px, 14vw, 96px);
   border-radius: 18px;
   border:1px solid rgba(255,255,255,.20);
   background: rgba(255,255,255,.14);
@@ -276,11 +296,24 @@ body.touch-mode-buttons .touch-controls{ display:flex; }
   backdrop-filter: blur(10px);
   box-shadow: 0 12px 30px rgba(0,0,0,.20);
   cursor:pointer;
-  touch-action: manipulation;
+  touch-action: none;
   transition: transform 70ms ease, background 70ms ease;
 }
 .tbtn:active{ transform: scale(0.96); }
-.tbtn-wide{ width:98px; }
+.tbtn-wide{ width: clamp(104px, 18vw, 140px); }
+
+/* Мобильная компактность HUD */
+@media (max-width: 420px){
+  .hud__topLeft{ gap:8px; }
+  #btn-exit-to-menu{ padding: 9px 11px; border-radius: 16px; font-size: 14px; }
+  .hud-progress{ padding: 7px 10px; border-radius: 14px; font-size: 13px; }
+  .hud__timer{ padding: 6px 10px; border-radius: 14px; font-size: 12px; }
+  .examHud{ min-width: 176px; padding: 9px 11px; border-radius: 16px; }
+}
+
+@media (max-height: 700px){
+  .hud__tipOverlay{ bottom: calc(var(--safe-bottom) + 82px); }
+}
 
 @media (pointer:fine){
   .touch-controls{ display:none; }
